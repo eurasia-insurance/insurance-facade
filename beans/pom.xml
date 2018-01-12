@@ -52,15 +52,14 @@
 			<optional>false</optional>
 		</dependency>
 		<dependency>
-			<groupId>tech.lapsa.esbd</groupId>
-			<artifactId>esbd-dao-client</artifactId>
+			<groupId>tech.lapsa.insurance</groupId>
+			<artifactId>insurance-facade-client</artifactId>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
-		<!-- own -->
 		<dependency>
-			<groupId>${project.groupId}</groupId>
-			<artifactId>insurance-facade-client</artifactId>
+			<groupId>tech.lapsa.esbd</groupId>
+			<artifactId>esbd-dao-client</artifactId>
 			<scope>compile</scope>
 			<optional>false</optional>
 		</dependency>
