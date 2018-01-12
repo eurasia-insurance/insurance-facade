@@ -26,7 +26,6 @@
 		<payara-bom.version>4.1.2-2</payara-bom.version>
 		<!-- tech -->
 		<lapsa-jms-rpc.version>1.0</lapsa-jms-rpc.version>
-		<insurance-domain.version>2.4</insurance-domain.version>
 		<insurance-shared.version>1.0</insurance-shared.version>
 		<!-- ejbs -->
 		<esbd-dao.version>2.2-SNAPSHOT</esbd-dao.version>
@@ -75,11 +74,6 @@
 				<scope>import</scope>
 			</dependency>
 			<!-- tech -->
-			<dependency>
-				<groupId>tech.lapsa.insurance</groupId>
-				<artifactId>insurance-domain</artifactId>
-				<version>${insurance-domain.version}</version>
-			</dependency>
 			<dependency>
 				<groupId>tech.lapsa.insurance</groupId>
 				<artifactId>insurance-dao-client</artifactId>
