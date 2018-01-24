@@ -20,6 +20,7 @@ import com.lapsa.insurance.elements.TransactionStatus;
 import tech.lapsa.epayment.facade.EpaymentFacade.EpaymentFacadeRemote;
 import tech.lapsa.epayment.facade.InvoiceNotFound;
 import tech.lapsa.insurance.dao.RequestDAO.RequestDAORemote;
+import tech.lapsa.insurance.facade.InsuranceRequestFacade.InsuranceRequestFacadeLocal;
 import tech.lapsa.insurance.facade.RequestCompletionFacade;
 import tech.lapsa.insurance.facade.RequestCompletionFacade.RequestCompletionFacadeLocal;
 import tech.lapsa.insurance.facade.RequestCompletionFacade.RequestCompletionFacadeRemote;
@@ -40,13 +41,14 @@ public class RequestCompletionFacadeBean
 	    final User user,
 	    final String note,
 	    final String agreementNumber,
+	    final String paymentMethodName,
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final Instant paymentInstant,
 	    final String paymentReference)
 	    throws IllegalState, IllegalArgument {
 	try {
-	    return _transactionCompleteWithPayment(request, user, note, agreementNumber, paymentAmount, paymentCurrency,
+	    return _transactionCompleteWithPayment(request, user, note, agreementNumber, paymentMethodName, paymentAmount, paymentCurrency,
 		    paymentInstant, paymentReference);
 	} catch (IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
@@ -92,6 +94,11 @@ public class RequestCompletionFacadeBean
     @EJB
     private EpaymentFacadeRemote epayments;
 
+    // epayment-facade (local)
+
+    @EJB
+    private InsuranceRequestFacadeLocal insuranceRequests;
+
     private Request _transactionComplete(final Request request, final User user, final String note,
 	    final String agreementNumber) throws IllegalArgumentException, IllegalStateException {
 
@@ -133,12 +140,14 @@ public class RequestCompletionFacadeBean
 	    final User user,
 	    final String note,
 	    final String agreementNumber,
+	    final String paymentMethodName,
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final Instant paymentInstant,
 	    final String paymentReference) throws IllegalArgumentException, IllegalStateException {
 
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
+	MyStrings.requireNonEmpty(paymentMethodName,"paymentMethodName");
 	MyObjects.requireNonNull(paymentCurrency, "paymentCurrency");
 	MyObjects.requireNonNull(paymentInstant, "paymentInstant");
 
@@ -146,14 +155,31 @@ public class RequestCompletionFacadeBean
 
 	if (MyObjects.isA(request, InsuranceRequest.class)) {
 	    final InsuranceRequest ir = MyObjects.requireA(response, InsuranceRequest.class);
-	    final String invoiceNumber = ir.getPayment().getInvoiceNumber();
+
 	    try {
-		epayments.completeWithUnknownPayment(invoiceNumber, paymentAmount, paymentCurrency, paymentInstant,
+		insuranceRequests.completePayment(ir.getId(),
+			paymentMethodName,
+			paymentInstant,
+			paymentAmount,
+			paymentCurrency,
 			paymentReference);
-	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+	    } catch (IllegalArgument e) {
 		// it should not happen
 		throw new EJBException(e);
 	    }
+
+	    final String invoiceNumber = ir.getPayment().getInvoiceNumber();
+	    if (MyStrings.nonEmpty(invoiceNumber))
+		try {
+		    epayments.completeWithUnknownPayment(invoiceNumber,
+			    paymentAmount,
+			    paymentCurrency,
+			    paymentInstant,
+			    paymentReference);
+		} catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		    // it should not happen
+		    throw new EJBException(e);
+		}
 	}
 
 	return response;
