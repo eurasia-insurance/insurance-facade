@@ -2,7 +2,6 @@ package tech.lapsa.insurance.facade.beans;
 
 import java.time.Instant;
 
-import com.lapsa.insurance.domain.CallbackRequest;
 import com.lapsa.insurance.domain.InsuranceRequest;
 import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.Request;
@@ -21,13 +20,6 @@ final class Requests {
 	preProgressStatus(request);
 
 	prePayment(request);
-	return request;
-    }
-
-    static <T extends CallbackRequest> T preSave(final T request) {
-	preDates(request);
-	preStatus(request);
-	preProgressStatus(request);
 	return request;
     }
 

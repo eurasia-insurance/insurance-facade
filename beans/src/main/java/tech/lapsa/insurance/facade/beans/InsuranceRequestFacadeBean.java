@@ -186,6 +186,9 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	final Optional<CalculationData> ocd = MyOptionals.of(request.getProduct()) //
 		.map(InsuranceProduct::getCalculation);
 
+	if (!ocd.isPresent())
+	    return request; // for callback requests
+
 	final LocalizationLanguage lang = ord.map(RequesterData::getPreferLanguage) //
 		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine the language"));
 
