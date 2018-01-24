@@ -115,7 +115,7 @@
 	<scm>
 		<connection>scm:git:https://gitlab.lapsa.tech/lapsa/insurance/facade.git</connection>
 		<developerConnection>scm:git:https://gitlab.lapsa.tech/lapsa/insurance/facade.git</developerConnection>
-		<tag>v1.3</tag>
+		<tag>HEAD</tag>
 	</scm>
 
 	<issueManagement>
