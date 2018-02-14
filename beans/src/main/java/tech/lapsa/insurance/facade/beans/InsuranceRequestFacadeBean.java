@@ -67,7 +67,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final String paymentReference)
 	    throws IllegalArgument {
 	try {
-	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, null, paymentReference);
+	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, paymentCard, paymentReference);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
