@@ -162,6 +162,7 @@ public class RequestCompletionFacadeBean
 			paymentInstant,
 			paymentAmount,
 			paymentCurrency,
+			null,
 			paymentReference);
 	    } catch (IllegalArgument e) {
 		// it should not happen

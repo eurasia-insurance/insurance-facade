@@ -63,10 +63,11 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final Instant paymentInstant,
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
+	    final String paymentCard,
 	    final String paymentReference)
 	    throws IllegalArgument {
 	try {
-	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, paymentReference);
+	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, null, paymentReference);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
@@ -119,6 +120,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final Instant paymentInstant,
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
+	    final String paymentCard,
 	    final String paymentReference)
 	    throws IllegalArgumentException {
 
@@ -143,6 +145,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    found.getPayment().setMethodName(methodName);
 	    found.getPayment().setAmount(paymentAmount);
 	    found.getPayment().setCurrency(paymentCurrency);
+	    found.getPayment().setCard(paymentCard);
 	    found.getPayment().setReference(paymentReference);
 	    found.getPayment().setInstant(paymentInstant);
 	    found.setUpdated(Instant.now());
