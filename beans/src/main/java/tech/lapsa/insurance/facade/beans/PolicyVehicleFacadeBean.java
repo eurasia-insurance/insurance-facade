@@ -242,6 +242,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	return MyOptionals.streamOf(vv) //
 		.orElseGet(Stream::empty) //
 		.map(PolicyVehicleFacadeBean::fillFromESBDEntity) //
+		.map(x -> fillFromVehicleRegNumber(x, regNumber))
 		.collect(MyCollectors.unmodifiableList());
     }
 
