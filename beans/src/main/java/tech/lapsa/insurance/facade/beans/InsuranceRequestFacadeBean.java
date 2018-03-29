@@ -64,10 +64,11 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final String paymentCard,
-	    final String paymentReference)
+	    final String paymentReference,
+	    final String payerName)
 	    throws IllegalArgument {
 	try {
-	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, paymentCard, paymentReference);
+	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, paymentCard, paymentReference, payerName);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
@@ -121,7 +122,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final String paymentCard,
-	    final String paymentReference)
+	    final String paymentReference,
+	    final String payerName)
 	    throws IllegalArgumentException {
 
 	MyNumbers.requirePositive(id, "id");
@@ -148,6 +150,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    found.getPayment().setCard(paymentCard);
 	    found.getPayment().setReference(paymentReference);
 	    found.getPayment().setInstant(paymentInstant);
+	    found.getPayment().setPayerName(payerName);
 	    found.setUpdated(Instant.now());
 	} catch (final NullPointerException e) {
 	    // it should not happens
