@@ -45,11 +45,12 @@ public class RequestCompletionFacadeBean
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final Instant paymentInstant,
-	    final String paymentReference)
+	    final String paymentReference,
+	    final String payerName)
 	    throws IllegalState, IllegalArgument {
 	try {
 	    return _transactionCompleteWithPayment(request, user, note, agreementNumber, paymentMethodName, paymentAmount, paymentCurrency,
-		    paymentInstant, paymentReference);
+		    paymentInstant, paymentReference, payerName);
 	} catch (IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	} catch (IllegalStateException e) {
@@ -144,7 +145,8 @@ public class RequestCompletionFacadeBean
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final Instant paymentInstant,
-	    final String paymentReference) throws IllegalArgumentException, IllegalStateException {
+	    final String paymentReference,
+	    final String payerName) throws IllegalArgumentException, IllegalStateException {
 
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
 	MyStrings.requireNonEmpty(paymentMethodName,"paymentMethodName");
@@ -163,7 +165,8 @@ public class RequestCompletionFacadeBean
 			paymentAmount,
 			paymentCurrency,
 			null,
-			paymentReference);
+			paymentReference,
+			payerName);
 	    } catch (IllegalArgument e) {
 		// it should not happen
 		throw new EJBException(e);
