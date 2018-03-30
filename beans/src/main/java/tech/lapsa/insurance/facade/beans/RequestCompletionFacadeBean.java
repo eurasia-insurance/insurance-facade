@@ -143,14 +143,14 @@ public class RequestCompletionFacadeBean
 	    final String agreementNumber,
 	    final String paymentMethodName,
 	    final Double paymentAmount,
-	    final Currency paymentCurrency,
+	    final Currency paymentCurency,
 	    final Instant paymentInstant,
 	    final String paymentReference,
 	    final String payerName) throws IllegalArgumentException, IllegalStateException {
 
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
 	MyStrings.requireNonEmpty(paymentMethodName,"paymentMethodName");
-	MyObjects.requireNonNull(paymentCurrency, "paymentCurrency");
+	MyObjects.requireNonNull(paymentCurency, "paymentCurrency");
 	MyObjects.requireNonNull(paymentInstant, "paymentInstant");
 
 	final Request response = _transactionComplete(request, user, note, agreementNumber);
@@ -163,7 +163,7 @@ public class RequestCompletionFacadeBean
 			paymentMethodName,
 			paymentInstant,
 			paymentAmount,
-			paymentCurrency,
+			paymentCurency,
 			null,
 			paymentReference,
 			payerName);
@@ -175,11 +175,7 @@ public class RequestCompletionFacadeBean
 	    final String invoiceNumber = ir.getPayment().getInvoiceNumber();
 	    if (MyStrings.nonEmpty(invoiceNumber))
 		try {
-		    epayments.completeWithUnknownPayment(invoiceNumber,
-			    paymentAmount,
-			    paymentCurrency,
-			    paymentInstant,
-			    paymentReference);
+		    epayments.completeWithUnknownPayment(invoiceNumber, paymentAmount, paymentCurency, paymentInstant, paymentReference, payerName);
 		} catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
 		    // it should not happen
 		    throw new EJBException(e);
