@@ -1,6 +1,5 @@
 package tech.lapsa.insurance.facade.beans;
 
-import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Stream;
 
@@ -246,7 +245,8 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	    throws IllegalArgumentException, PolicyVehicleNotFound {
 	final List<PolicyVehicle> vv = _fetchAllByRegNumber(regNumber);
 	if (vv.isEmpty())
-	    throw MyExceptions.format(PolicyVehicleNotFound::new, "Policy vehicle not found with reg number %1$s", regNumber);
+	    throw MyExceptions.format(PolicyVehicleNotFound::new, "Policy vehicle not found with reg number %1$s",
+		    regNumber);
 	return vv.get(vv.size() - 1);
     }
 
@@ -282,7 +282,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 
 	    vehicle.setVinCode(esbdEntity.getVinCode());
 	    if (esbdEntity.getRealeaseDate() != null) {
-		vehicle.setVehicleAgeClass(obtainVehicleAgeClass(esbdEntity.getRealeaseDate()));
+		vehicle.setVehicleAgeClass(VehicleAgeClass.forDateOfManufacture(esbdEntity.getRealeaseDate()));
 		vehicle.setYearOfManufacture(esbdEntity.getRealeaseDate().getYear());
 	    }
 
@@ -329,22 +329,4 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	    return null;
 	}
     }
-
-    private static VehicleAgeClass _obtainVehicleAgeClass(final int age) {
-	return age > 7 ? VehicleAgeClass.OVER7 : VehicleAgeClass.UNDER7;
-    }
-
-    private static VehicleAgeClass obtainVehicleAgeClass(final LocalDate realeaseDate) {
-	if (realeaseDate == null)
-	    return null;
-	final int age = calculateAgeByDOB(realeaseDate);
-	return _obtainVehicleAgeClass(age);
-    }
-
-    private static int calculateAgeByDOB(final LocalDate dob) {
-	if (dob == null)
-	    throw new NullPointerException();
-	return dob.until(LocalDate.now()).getYears();
-    }
-
 }
