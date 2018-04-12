@@ -26,12 +26,31 @@ import tech.lapsa.patterns.dao.NotFound;
 @Stateless(name = UserFacade.BEAN_NAME)
 public class UserFacadeBean implements UserFacadeLocal, UserFacadeRemote {
 
+    @EJB
+    private UserDAORemote userDAO;
+
     // READERS
 
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<User> getWhoEverCreatedRequests() {
-	return _getWhoEverCreatedRequests();
+	return userDAO.findAllWhoEverCreatedRequest();
+    }
+
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<User> getWhoEverAcceptedRequests() {
+	return userDAO.findAllWhoEverAcceptRequest();
+    }
+
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<User> getWhoEverCompletedRequests() {
+	return userDAO.findAllWhoEverCompleteRequest();
     }
 
     // MODIFIERS
@@ -53,19 +72,6 @@ public class UserFacadeBean implements UserFacadeLocal, UserFacadeRemote {
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
-    }
-
-    // PRIVATE
-
-    @EJB
-    private UserDAORemote userDAO;
-
-    private final MyLogger logger = MyLogger.newBuilder() //
-	    .withNameOf(UserFacade.class) //
-	    .build();
-
-    private List<User> _getWhoEverCreatedRequests() {
-	return userDAO.findAllWhoCreatedRequest();
     }
 
     private User _findOrCreate(final Principal principal) throws IllegalArgumentException {
@@ -107,6 +113,12 @@ public class UserFacadeBean implements UserFacadeLocal, UserFacadeRemote {
 	    return u;
 	}
     }
+
+    // PRIVATE
+
+    private final MyLogger logger = MyLogger.newBuilder() //
+	    .withNameOf(UserFacade.class) //
+	    .build();
 
     private static class Util {
 
