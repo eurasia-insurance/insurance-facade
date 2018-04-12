@@ -3,7 +3,8 @@ package tech.lapsa.insurance.facade.beans;
 import java.time.Instant;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
-import java.time.format.FormatStyle;
+import java.time.format.DateTimeFormatterBuilder;
+import java.time.temporal.ChronoUnit;
 import java.util.Currency;
 
 import javax.ejb.EJB;
@@ -259,13 +260,24 @@ public class RequestCompletionFacadeBean
 	}
     }
 
+    private static final DateTimeFormatter COMMENT_DATE_TIME_FORMATTER = //
+	    new DateTimeFormatterBuilder() //
+		    .append(DateTimeFormatter.ISO_LOCAL_DATE) //
+		    .appendLiteral(" ") //
+		    .append(DateTimeFormatter.ISO_LOCAL_TIME) //
+		    .toFormatter();
+
+    private static String getTimestamp() {
+	return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).format(COMMENT_DATE_TIME_FORMATTER);
+    }
+
     private Request _commentRequest(Request request, User user, String message) {
 	MyObjects.requireNonNull(request, "request");
 	MyObjects.requireNonNull(user, "user");
 	MyStrings.requireNonEmpty(message, "message");
 
 	final String newLine = MyStrings.format("%1$s %2$s\n%3$s", //
-		LocalDateTime.now().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)), // 1
+		getTimestamp(), // 1
 		user.getName(), // 2
 		message // 3
 	);
