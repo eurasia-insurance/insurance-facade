@@ -1,6 +1,9 @@
 package tech.lapsa.insurance.facade.beans;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
+import java.time.format.FormatStyle;
 import java.util.Currency;
 
 import javax.ejb.EJB;
@@ -35,54 +38,6 @@ import tech.lapsa.java.commons.function.MyStrings;
 public class RequestCompletionFacadeBean
 	implements RequestCompletionFacadeLocal, RequestCompletionFacadeRemote {
 
-    @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public Request transactionCompleteWithPayment(final Request request,
-	    final User user,
-	    final String note,
-	    final String agreementNumber,
-	    final String paymentMethodName,
-	    final Double paymentAmount,
-	    final Currency paymentCurrency,
-	    final Instant paymentInstant,
-	    final String paymentReference,
-	    final String payerName)
-	    throws IllegalState, IllegalArgument {
-	try {
-	    return _transactionCompleteWithPayment(request, user, note, agreementNumber, paymentMethodName, paymentAmount, paymentCurrency,
-		    paymentInstant, paymentReference, payerName);
-	} catch (IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	} catch (IllegalStateException e) {
-	    throw new IllegalState(e);
-	}
-    }
-
-    @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public Request transactionComplete(final Request request,
-	    final User user,
-	    final String note,
-	    final String agreementNumber)
-	    throws IllegalState, IllegalArgument {
-	try {
-	    return _transactionComplete(request, user, note, agreementNumber);
-	} catch (IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	} catch (IllegalStateException e) {
-	    throw new IllegalState(e);
-	}
-    }
-
-    @Override
-    public Request transactionUncomplete(final Request request,
-	    final User user,
-	    final String note,
-	    final TransactionProblem transactionProblem,
-	    final boolean paidable) throws IllegalState, IllegalArgument {
-	return _transactionUncomplete(request, user, note, transactionProblem, paidable);
-    }
-
     // EJBs
 
     // insurance-dao (remote)
@@ -100,46 +55,33 @@ public class RequestCompletionFacadeBean
     @EJB
     private InsuranceRequestFacadeLocal insuranceRequests;
 
-    private Request _transactionComplete(final Request request, final User user, final String note,
-	    final String agreementNumber) throws IllegalArgumentException, IllegalStateException {
+    //
 
-	MyObjects.requireNonNull(request, "request");
-	MyObjects.requireNonNull(user, "user");
-	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
-
-	if (request.getProgressStatus() == ProgressStatus.FINISHED)
-	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s", request.getProgressStatus());
-
-	final Instant now = Instant.now();
-
-	request.setUpdated(now);
-	request.setCompleted(now);
-	request.setCompletedBy(user);
-	request.setNote(note);
-	request.setProgressStatus(ProgressStatus.FINISHED);
-
-	if (MyObjects.isA(request, InsuranceRequest.class)) {
-	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
-	    ir.setTransactionStatus(TransactionStatus.COMPLETED);
-	    ir.getPayment().setStatus(PaymentStatus.DONE);
-	    ir.setTransactionProblem(null);
-	    ir.setAgreementNumber(agreementNumber);
-	}
-
-	final Request response;
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public Request transactionCompleteWithPayment(final Request request,
+	    final User user,
+	    final String agreementNumber,
+	    final String paymentMethodName,
+	    final Double paymentAmount,
+	    final Currency paymentCurrency,
+	    final Instant paymentInstant,
+	    final String paymentReference,
+	    final String payerName)
+	    throws IllegalState, IllegalArgument {
 	try {
-	    response = requestDAO.save(request);
-	} catch (IllegalArgument e) {
-	    // it should not happen
-	    throw new EJBException(e);
+	    return _transactionCompleteWithPayment(request, user, agreementNumber, paymentMethodName,
+		    paymentAmount, paymentCurrency,
+		    paymentInstant, paymentReference, payerName);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
 	}
-
-	return response;
     }
 
     private Request _transactionCompleteWithPayment(final Request request,
 	    final User user,
-	    final String note,
 	    final String agreementNumber,
 	    final String paymentMethodName,
 	    final Double paymentAmount,
@@ -149,11 +91,11 @@ public class RequestCompletionFacadeBean
 	    final String payerName) throws IllegalArgumentException, IllegalStateException {
 
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
-	MyStrings.requireNonEmpty(paymentMethodName,"paymentMethodName");
+	MyStrings.requireNonEmpty(paymentMethodName, "paymentMethodName");
 	MyObjects.requireNonNull(paymentCurency, "paymentCurrency");
 	MyObjects.requireNonNull(paymentInstant, "paymentInstant");
 
-	final Request response = _transactionComplete(request, user, note, agreementNumber);
+	final Request response = _transactionComplete(request, user, agreementNumber);
 
 	if (MyObjects.isA(request, InsuranceRequest.class)) {
 	    final InsuranceRequest ir = MyObjects.requireA(response, InsuranceRequest.class);
@@ -175,7 +117,8 @@ public class RequestCompletionFacadeBean
 	    final String invoiceNumber = ir.getPayment().getInvoiceNumber();
 	    if (MyStrings.nonEmpty(invoiceNumber))
 		try {
-		    epayments.completeWithUnknownPayment(invoiceNumber, paymentAmount, paymentCurency, paymentInstant, paymentReference, payerName);
+		    epayments.completeWithUnknownPayment(invoiceNumber, paymentAmount, paymentCurency, paymentInstant,
+			    paymentReference, payerName);
 		} catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
 		    // it should not happen
 		    throw new EJBException(e);
@@ -185,9 +128,71 @@ public class RequestCompletionFacadeBean
 	return response;
     }
 
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public Request transactionComplete(final Request request,
+	    final User user,
+	    final String agreementNumber)
+	    throws IllegalState, IllegalArgument {
+	try {
+	    return _transactionComplete(request, user, agreementNumber);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    private Request _transactionComplete(final Request request,
+	    final User user,
+	    final String agreementNumber) throws IllegalArgumentException, IllegalStateException {
+
+	MyObjects.requireNonNull(request, "request");
+	MyObjects.requireNonNull(user, "user");
+	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
+
+	if (request.getProgressStatus() == ProgressStatus.FINISHED)
+	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s", request.getProgressStatus());
+
+	final Instant now = Instant.now();
+
+	request.setUpdated(now);
+	request.setCompleted(now);
+	request.setCompletedBy(user);
+	request.setProgressStatus(ProgressStatus.FINISHED);
+
+	if (MyObjects.isA(request, InsuranceRequest.class)) {
+	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
+	    ir.setTransactionStatus(TransactionStatus.COMPLETED);
+	    ir.getPayment().setStatus(PaymentStatus.DONE);
+	    ir.setTransactionProblem(null);
+	    ir.setAgreementNumber(agreementNumber);
+	}
+
+	final Request response;
+	try {
+	    response = requestDAO.save(request);
+	} catch (IllegalArgument e) {
+	    // it should not happen
+	    throw new EJBException(e);
+	}
+
+	return response;
+    }
+
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public Request transactionUncomplete(Request request, User user, TransactionProblem transactionProblem,
+	    boolean paidable) throws IllegalState, IllegalArgument {
+	return _transactionUncomplete(request, user, transactionProblem, paidable);
+    }
+
     private Request _transactionUncomplete(final Request request,
 	    final User user,
-	    final String note,
 	    final TransactionProblem transactionProblem,
 	    final boolean paidable) throws IllegalStateException, IllegalArgumentException {
 
@@ -203,7 +208,6 @@ public class RequestCompletionFacadeBean
 	request.setUpdated(now);
 	request.setCompleted(now);
 	request.setCompletedBy(user);
-	request.setNote(note);
 	request.setProgressStatus(ProgressStatus.FINISHED);
 
 	if (MyObjects.isA(request, InsuranceRequest.class)) {
@@ -240,4 +244,45 @@ public class RequestCompletionFacadeBean
 	return response;
     }
 
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public Request commentRequest(Request request, User user, String message)
+	    throws IllegalState, IllegalArgument {
+	try {
+	    return _commentRequest(request, user, message);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    private Request _commentRequest(Request request, User user, String message) {
+	MyObjects.requireNonNull(request, "request");
+	MyObjects.requireNonNull(user, "user");
+	MyStrings.requireNonEmpty(message, "message");
+
+	final String newLine = MyStrings.format("%1$s %2$s\n%3$s", //
+		LocalDateTime.now().format(DateTimeFormatter.ofLocalizedDateTime(FormatStyle.MEDIUM)), // 1
+		user.getName(), // 2
+		message // 3
+	);
+
+	final String oldNote = request.getNote();
+	final String newNote = MyStrings.format("\n%1$s\n%2$s", newLine, oldNote == null ? "" : oldNote);
+
+	request.setNote(newNote);
+
+	final Request response;
+	try {
+	    response = requestDAO.save(request);
+	} catch (IllegalArgument e) {
+	    // it should not happen
+	    throw new EJBException(e);
+	}
+
+	return response;
+    }
 }
