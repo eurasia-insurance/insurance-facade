@@ -159,7 +159,6 @@ public class RequestCompletionFacadeBean
 
 	final Instant now = Instant.now();
 
-	request.setUpdated(now);
 	request.setCompleted(now);
 	request.setCompletedBy(user);
 	request.setProgressStatus(ProgressStatus.FINISHED);
@@ -206,7 +205,6 @@ public class RequestCompletionFacadeBean
 
 	final Instant now = Instant.now();
 
-	request.setUpdated(now);
 	request.setCompleted(now);
 	request.setCompletedBy(user);
 	request.setProgressStatus(ProgressStatus.FINISHED);
