@@ -28,7 +28,6 @@ final class Requests {
     private static <T extends Request> T preDates(final T request) {
 	if (request.getCreated() == null)
 	    request.setCreated(Instant.now());
-	request.setUpdated(Instant.now());
 	return request;
     }
 
