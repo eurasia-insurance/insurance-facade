@@ -108,6 +108,7 @@ public class RequestCompletionFacadeBean
 			paymentAmount,
 			paymentCurency,
 			null,
+			null,
 			paymentReference,
 			payerName);
 	    } catch (IllegalArgument e) {
@@ -118,8 +119,12 @@ public class RequestCompletionFacadeBean
 	    final String invoiceNumber = ir.getPayment().getInvoiceNumber();
 	    if (MyStrings.nonEmpty(invoiceNumber))
 		try {
-		    epayments.completeWithUnknownPayment(invoiceNumber, paymentAmount, paymentCurency, paymentInstant,
-			    paymentReference, payerName);
+		    epayments.completeWithUnknownPayment(invoiceNumber,
+			    paymentAmount,
+			    paymentCurency,
+			    paymentInstant,
+			    paymentReference,
+			    payerName);
 		} catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
 		    // it should not happen
 		    throw new EJBException(e);
