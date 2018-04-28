@@ -64,11 +64,20 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final String paymentCard,
+	    final String paymentCardBank,
 	    final String paymentReference,
 	    final String payerName)
 	    throws IllegalArgument {
 	try {
-	    _completePayment(id, methodName, paymentInstant, paymentAmount, paymentCurrency, paymentCard, paymentReference, payerName);
+	    _completePayment(id,
+		    methodName,
+		    paymentInstant,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentCard,
+		    paymentCardBank,
+		    paymentReference,
+		    payerName);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
@@ -122,6 +131,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
 	    final String paymentCard,
+	    final String paymentCardBank,
 	    final String paymentReference,
 	    final String payerName)
 	    throws IllegalArgumentException {
@@ -132,9 +142,9 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
 	MyObjects.requireNonNull(paymentCurrency, "paymentCurrency");
 
-	final InsuranceRequest found;
+	final InsuranceRequest ir1;
 	try {
-	    found = dao.getById(id);
+	    ir1 = dao.getById(id);
 	} catch (final NotFound e) {
 	    throw MyExceptions.illegalArgumentFormat("Request not found with id %1$s", id);
 	} catch (final IllegalArgument e) {
@@ -143,35 +153,35 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	}
 
 	try {
-	    found.getPayment().setStatus(PaymentStatus.DONE);
-	    found.getPayment().setMethodName(methodName);
-	    found.getPayment().setAmount(paymentAmount);
-	    found.getPayment().setCurrency(paymentCurrency);
-	    found.getPayment().setCard(paymentCard);
-	    found.getPayment().setReference(paymentReference);
-	    found.getPayment().setInstant(paymentInstant);
-	    found.getPayment().setPayerName(payerName);
-	    found.setUpdated(Instant.now());
+	    ir1.getPayment().setStatus(PaymentStatus.DONE);
+	    ir1.getPayment().setMethodName(methodName);
+	    ir1.getPayment().setAmount(paymentAmount);
+	    ir1.getPayment().setCurrency(paymentCurrency);
+	    ir1.getPayment().setCard(paymentCard);
+	    ir1.getPayment().setCardBank(paymentCardBank);
+	    ir1.getPayment().setReference(paymentReference);
+	    ir1.getPayment().setInstant(paymentInstant);
+	    ir1.getPayment().setPayerName(payerName);
 	} catch (final NullPointerException e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	final InsuranceRequest processed;
+	final InsuranceRequest ir2;
 	try {
-	    processed = dao.save(found);
+	    ir2 = dao.save(ir1);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	processed.unlazy();
+	ir2.unlazy();
 
 	try {
 	    notifications.send(Notification.builder() //
 		    .withEvent(NotificationEventType.REQUEST_PAID) //
 		    .withChannel(NotificationChannel.EMAIL) //
-		    .forEntity(processed) //
+		    .forEntity(ir2) //
 		    .withRecipient(NotificationRecipientType.COMPANY) //
 		    .build());
 	} catch (final IllegalArgument e) {
