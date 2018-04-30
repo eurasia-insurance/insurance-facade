@@ -53,6 +53,14 @@ public class UserFacadeBean implements UserFacadeLocal, UserFacadeRemote {
 	return userDAO.findAllWhoEverCompleteRequest();
     }
 
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public List<User> getAll() {
+	return userDAO.findAll();
+    }
+
     // MODIFIERS
 
     @Override
