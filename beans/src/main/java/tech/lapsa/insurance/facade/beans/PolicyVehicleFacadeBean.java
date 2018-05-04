@@ -9,10 +9,12 @@ import javax.ejb.Stateless;
 import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 
+import com.lapsa.insurance.domain.VehicleCertificateData;
 import com.lapsa.insurance.domain.policy.PolicyVehicle;
 import com.lapsa.insurance.elements.VehicleAgeClass;
 import com.lapsa.insurance.elements.VehicleClass;
 
+import tech.lapsa.esbd.dao.entities.InsuredVehicleEntity;
 import tech.lapsa.esbd.dao.entities.VehicleEntity;
 import tech.lapsa.esbd.dao.entities.VehicleEntityService.VehicleEntityServiceRemote;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade;
@@ -127,6 +129,35 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
+    public PolicyVehicle fillFromESBDEntity(final InsuredVehicleEntity in) {
+	if (in == null)
+	    return new PolicyVehicle();
+
+	final PolicyVehicle out = fillFromESBDEntity(in.getVehicle());
+
+	if (in.getCertificate() != null) {
+	    out.setCertificateData(new VehicleCertificateData());
+	    out.getCertificateData().setDateOfIssue(in.getCertificate().getDateOfIssue());
+	    out.getCertificateData().setNumber(in.getCertificate().getCertificateNumber());
+	    out.getCertificateData()
+		    .setRegistrationNumber(VehicleRegNumber.assertValid(in.getCertificate().getRegistrationNumber()));
+	    out.setArea(in.getCertificate().getRegistrationRegion());
+	}
+
+	out.setVehicleAgeClass(in.getVehicleAgeClass());
+	out.setVehicleClass(in.getVehicleClass());
+
+	// in.getCreated();
+	// in.getCurrentOdometerValue();
+	// in.getId();
+	// in.getInsurer();
+	// in.getModified();
+	// in.getPolicy();
+	// in.getVehiclePurpose();
+
+	return out;
+    }
+
     // MODIFIERS
 
     // PRIVATE
@@ -188,7 +219,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	return MyOptionals.streamOf(vv) //
 		.orElseGet(Stream::empty) //
 		.findFirst()
-		.map(PolicyVehicleFacadeBean::fillFromESBDEntity)
+		.map(this::fillFromESBDEntity)
 		.orElseThrow(MyExceptions.supplier(PolicyVehicleNotFound::new,
 			"Policy vehicle not found with VIN code %1$s", vinCode));
     }
@@ -208,7 +239,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 
 	return MyOptionals.streamOf(vv) //
 		.orElseGet(Stream::empty) //
-		.map(PolicyVehicleFacadeBean::fillFromESBDEntity) //
+		.map(this::fillFromESBDEntity) //
 		.collect(MyCollectors.unmodifiableList());
     }
 
@@ -227,7 +258,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 
 	return MyOptionals.streamOf(vv) //
 		.orElseGet(Stream::empty) //
-		.map(PolicyVehicleFacadeBean::fillFromESBDEntity) //
+		.map(this::fillFromESBDEntity) //
 		.map(x -> fillFromVehicleRegNumber(x, regNumber))
 		.collect(MyCollectors.unmodifiableList());
     }
@@ -274,7 +305,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 
     // PRIVATE STATIC
 
-    private static PolicyVehicle fillFromESBDEntity(final VehicleEntity esbdEntity) {
+    public PolicyVehicle fillFromESBDEntity(final VehicleEntity esbdEntity) {
 	final PolicyVehicle vehicle = new PolicyVehicle();
 
 	if (esbdEntity != null) {

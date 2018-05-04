@@ -9,12 +9,17 @@ import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 
 import com.lapsa.insurance.domain.CalculationData;
+import com.lapsa.insurance.domain.CompanyData;
 import com.lapsa.insurance.domain.InsurancePeriodData;
+import com.lapsa.insurance.domain.InsurantData;
+import com.lapsa.insurance.domain.PersonalData;
 import com.lapsa.insurance.domain.policy.Policy;
 
 import tech.lapsa.esbd.dao.NotFound;
 import tech.lapsa.esbd.dao.entities.PolicyEntity;
 import tech.lapsa.esbd.dao.entities.PolicyEntityService.PolicyEntityServiceRemote;
+import tech.lapsa.esbd.dao.entities.SubjectCompanyEntity;
+import tech.lapsa.esbd.dao.entities.SubjectPersonEntity;
 import tech.lapsa.insurance.facade.PolicyFacade;
 import tech.lapsa.insurance.facade.PolicyFacade.PolicyFacadeLocal;
 import tech.lapsa.insurance.facade.PolicyFacade.PolicyFacadeRemote;
@@ -83,22 +88,79 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 	    out.getActual().setAmount(in.getActualPremium());
 	    out.getActual().setCurrency(KZT);
 
-	    in.getId();
-	    in.getNumber();
-	    in.getDateOfIssue();
-	    in.getCreated();
-	    in.getInternalNumber();
+	    // in.getId();
+	    out.setNumber(in.getNumber());
 
-	    in.getInsurant();
+	    out.setDateOfIssue(in.getDateOfIssue());
+
+	    // in.getCreated();
+	    // in.getInternalNumber();
+
+	    if (in.getInsurant() != null) {
+
+		out.setInsurant(new InsurantData());
+
+		if (in.getInsurant().getContact() != null) {
+		    out.getInsurant().setPhone(in.getInsurant().getContact().getPhone());
+		    out.getInsurant().setEmail(in.getInsurant().getContact().getEmail());
+		    // in.getInsurant().getContact().getHomeAdress();
+		    // in.getInsurant().getContact().getSiteUrl();
+		}
+
+		out.getInsurant().setIdNumber(in.getInsurant().getIdNumber());
+
+		// in.getInsurant().getComments();
+
+		// in.getInsurant().getEconomicsSector();
+		// in.getInsurant().getId();
+		// in.getInsurant().getOrigin().getCity();
+		// in.getInsurant().getOrigin().getCountry();
+		// in.getInsurant().getSubjectType();
+		// in.getInsurant().getTaxPayerNumber();
+
+		if (in.getInsurant() instanceof SubjectPersonEntity) {
+
+		    final SubjectPersonEntity in1 = (SubjectPersonEntity) in.getInsurant();
+
+		    if (in1.getPersonal() != null) {
+			out.getInsurant().setPersonal(new PersonalData());
+			out.getInsurant().getPersonal().setName(in1.getPersonal().getName());
+			out.getInsurant().getPersonal().setSurename(in1.getPersonal().getSurename());
+			out.getInsurant().getPersonal().setPatronymic(in1.getPersonal().getPatronymic());
+			out.getInsurant().getPersonal().setDateOfBirth(in1.getPersonal().getDayOfBirth());
+			out.getInsurant().getPersonal().setGender(in1.getPersonal().getGender());
+		    }
+
+		    // in1.getIdentityCard().getDateOfIssue();
+		    // in1.getIdentityCard().getIdentityCardType();
+		    // in1.getIdentityCard().getIssuingAuthority();
+		    // in1.getIdentityCard().getNumber();
+		    // in1.getTaxPayerNumber();
+		}
+
+		if (in.getInsurant() instanceof SubjectCompanyEntity) {
+		    final SubjectCompanyEntity in1 = (SubjectCompanyEntity) in.getInsurant();
+
+		    out.getInsurant().setCompany(new CompanyData());
+		    out.getInsurant().getCompany().setName(in1.getCompanyName());
+
+		    // in1.getHeadName();
+		    // in1.getAccountantName();
+		    // in1.getCompanyActivityKind();
+		}
+	    }
+
+	    out.setDateOfTermination(in.getDateOfCancelation());
+
+	    // in.getCancelationReasonType();
+
+	    // in.getReissuedPolicyId();
+
+	    // in.getComments();
+
+	    // in.getModified();
+
 	    in.getInsurer();
-
-	    in.getCancelationReasonType();
-	    in.getDateOfCancelation();
-	    in.getReissuedPolicyId();
-
-	    in.getComments();
-
-	    in.getModified();
 
 	    // in.getInsuredDrivers();
 	    MyStreams.orEmptyOf(in.getInsuredDrivers())
