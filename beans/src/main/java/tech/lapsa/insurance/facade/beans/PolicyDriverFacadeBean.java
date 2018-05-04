@@ -9,6 +9,7 @@ import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 
 import com.lapsa.insurance.domain.ContactData;
+import com.lapsa.insurance.domain.DriverLicenseData;
 import com.lapsa.insurance.domain.IdentityCardData;
 import com.lapsa.insurance.domain.OriginData;
 import com.lapsa.insurance.domain.PersonalData;
@@ -19,7 +20,9 @@ import com.lapsa.insurance.elements.InsuredAgeClass;
 import com.lapsa.insurance.elements.Sex;
 
 import tech.lapsa.esbd.dao.NotFound;
+import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService;
 import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService.InsuranceClassTypeServiceRemote;
+import tech.lapsa.esbd.dao.entities.InsuredDriverEntity;
 import tech.lapsa.esbd.dao.entities.SubjectPersonEntity;
 import tech.lapsa.esbd.dao.entities.SubjectPersonEntityService.SubjectPersonEntityServiceRemote;
 import tech.lapsa.insurance.facade.PolicyDriverFacade;
@@ -42,6 +45,15 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	return _getDefaultInsuranceClass();
     }
 
+    @EJB
+    private InsuranceClassTypeServiceRemote insuranceClassTypeService;
+
+    private InsuranceClassType _getDefaultInsuranceClass() {
+	return insuranceClassTypeService.getDefault();
+    }
+
+    //
+
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public PolicyDriver getByTaxpayerNumber(final TaxpayerNumber idNumber)
@@ -53,63 +65,8 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	}
     }
 
-    @Override
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    public PolicyDriver getByTaxpayerNumberOrDefault(final TaxpayerNumber taxpayerNumber)
-	    throws IllegalArgument {
-	try {
-	    return _getByTaxpayerNumberOrDefault(taxpayerNumber);
-	} catch (final IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	}
-    }
-
-    @Override
-    @Deprecated
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    public void fetch(final PolicyDriver driver) throws IllegalArgument, PolicyDriverNotFound {
-	try {
-	    _fetch(driver);
-	} catch (final IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	}
-    }
-
-    @Override
-    @Deprecated
-    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
-    public void clearFetched(final PolicyDriver driver) throws IllegalArgument {
-	try {
-	    _clearFetched(driver);
-	} catch (final IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	}
-    }
-
-    // MODIFIERS
-
-    // PRIVATE
-
     @EJB
     private SubjectPersonEntityServiceRemote subjectPersonService;
-
-    @EJB
-    private InsuranceClassTypeServiceRemote insuranceClassTypeService;
-
-    private InsuranceClassType _getDefaultInsuranceClass() {
-	return insuranceClassTypeService.getDefault();
-    }
-
-    private PolicyDriver _getByTaxpayerNumberOrDefault(final TaxpayerNumber taxpayerNumber)
-	    throws IllegalArgumentException {
-	try {
-	    return _getByTaxpayerNumber(taxpayerNumber);
-	} catch (final PolicyDriverNotFound e) {
-	    final PolicyDriver pd = new PolicyDriver();
-	    fillFromTaxpayerNumber(pd, taxpayerNumber);
-	    return pd;
-	}
-    }
 
     private PolicyDriver _getByTaxpayerNumber(final TaxpayerNumber idNumber)
 	    throws IllegalArgumentException, PolicyDriverNotFound {
@@ -125,9 +82,46 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	    throw MyExceptions.format(PolicyDriverNotFound::new, "Driver not found with idNumber %1$s", idNumber);
 	}
 
-	final PolicyDriver pd = fillFromESBDEntity(sp);
-	fillFromTaxpayerNumber(pd, idNumber);
+	final PolicyDriver pd = _fillFromESBDEntity(sp);
+	_fillFromTaxpayerNumber(pd, idNumber);
 	return pd;
+    }
+
+    //
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public PolicyDriver getByTaxpayerNumberOrDefault(final TaxpayerNumber taxpayerNumber)
+	    throws IllegalArgument {
+	try {
+	    return _getByTaxpayerNumberOrDefault(taxpayerNumber);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
+
+    private PolicyDriver _getByTaxpayerNumberOrDefault(final TaxpayerNumber taxpayerNumber)
+	    throws IllegalArgumentException {
+	try {
+	    return _getByTaxpayerNumber(taxpayerNumber);
+	} catch (final PolicyDriverNotFound e) {
+	    final PolicyDriver pd = new PolicyDriver();
+	    _fillFromTaxpayerNumber(pd, taxpayerNumber);
+	    return pd;
+	}
+    }
+
+    //
+
+    @Override
+    @Deprecated
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public void fetch(final PolicyDriver driver) throws IllegalArgument, PolicyDriverNotFound {
+	try {
+	    _fetch(driver);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
     }
 
     @Deprecated
@@ -152,7 +146,19 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	driver.setContactData(fetched.getContactData());
     }
 
+    //
+
+    @Override
     @Deprecated
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public void clearFetched(final PolicyDriver driver) throws IllegalArgument {
+	try {
+	    _clearFetched(driver);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
+
     private void _clearFetched(final PolicyDriver driver) throws IllegalArgumentException {
 	MyObjects.requireNonNull(driver, "driver");
 	driver.setFetched(false);
@@ -168,29 +174,74 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	driver.setContactData(new ContactData());
     }
 
-    private PolicyDriver fillFromESBDEntity(final SubjectPersonEntity esbdEntity) {
+    //
+
+    static PolicyDriver __fillFromESBDEntity(final InsuredDriverEntity in,
+	    final InsuranceClassTypeService insuranceClassTypeService) {
+
+	if (in == null)
+	    return new PolicyDriver();
+
+	final PolicyDriver out = fillFromESBDEntity(in.getInsuredPerson(), insuranceClassTypeService);
+
+	out.setAgeClass(in.getAgeClass());
+	out.setExpirienceClass(in.getExpirienceClass());
+	out.setInsuranceClassType(in.getInsuraceClassType());
+
+	final boolean hasAnyPrivilege = MyObjects.nonNull(in.getPrivilegerInfo())
+		|| MyObjects.nonNull(in.getGpwParticipantInfo())
+		|| MyObjects.nonNull(in.getHandicappedInfo())
+		|| MyObjects.nonNull(in.getPensionerInfo());
+	out.setHasAnyPrivilege(hasAnyPrivilege);
+
+	if (in.getDriverLicense() != null) {
+	    out.setDriverLicenseData(new DriverLicenseData());
+	    out.getDriverLicenseData().setDateOfIssue(in.getDriverLicense().getDateOfIssue());
+	    out.getDriverLicenseData().setNumber(in.getDriverLicense().getNumber());
+	}
+
+	// in.getCreated();
+	// in.getId();
+	// in.getInsuredAgeExpirienceClass();
+	// in.getInsurer();
+	// in.getMaritalStatus();
+	// in.getModified();
+	// in.getPolicy();
+
+	return out;
+
+    }
+
+    //
+
+    private PolicyDriver _fillFromESBDEntity(final SubjectPersonEntity in) {
+	return fillFromESBDEntity(in, insuranceClassTypeService);
+    }
+
+    static PolicyDriver fillFromESBDEntity(final SubjectPersonEntity in,
+	    final InsuranceClassTypeService insuranceClassTypeService) {
 
 	final PolicyDriver driver = new PolicyDriver();
 
-	if (esbdEntity != null) {
+	if (in != null) {
 
-	    if (esbdEntity.getIdNumber() != null)
-		driver.setIdNumber(esbdEntity.getIdNumber());
+	    if (in.getIdNumber() != null)
+		driver.setIdNumber(in.getIdNumber());
 
 	    InsuranceClassType insuranceClassTypeLocal = null;
 	    {
 		insuranceClassTypeLocal = insuranceClassTypeService.getDefault();
 		try {
-		    insuranceClassTypeLocal = insuranceClassTypeService.getForSubject(esbdEntity);
+		    insuranceClassTypeLocal = insuranceClassTypeService.getForSubject(in);
 		} catch (final NotFound | IllegalArgument e) {
 		}
 	    }
 
 	    LocalDate dobLocal = null;
 	    {
-		if (esbdEntity != null && esbdEntity.getPersonal() != null
-			&& esbdEntity.getPersonal().getDayOfBirth() != null)
-		    dobLocal = esbdEntity.getPersonal().getDayOfBirth();
+		if (in != null && in.getPersonal() != null
+			&& in.getPersonal().getDayOfBirth() != null)
+		    dobLocal = in.getPersonal().getDayOfBirth();
 	    }
 
 	    InsuredAgeClass insuredAgeClassLocal = null;
@@ -199,90 +250,97 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 		    insuredAgeClassLocal = obtainInsuredAgeClass(dobLocal);
 	    }
 
-	    Sex sexLocal = null;
+	    Sex genderLocal = null;
 	    {
-		if (esbdEntity != null && esbdEntity.getPersonal() != null
-			&& esbdEntity.getPersonal().getGender() != null)
-		    sexLocal = esbdEntity.getPersonal().getGender();
+		if (in != null && in.getPersonal() != null
+			&& in.getPersonal().getGender() != null)
+		    genderLocal = in.getPersonal().getGender();
 	    }
 
-	    driver.setIdNumber(esbdEntity.getIdNumber());
+	    driver.setIdNumber(in.getIdNumber());
 
 	    driver.setInsuranceClassType(insuranceClassTypeLocal);
 	    driver.setAgeClass(insuredAgeClassLocal);
 
-	    driver.getPersonalData().setDayOfBirth(dobLocal);
-	    driver.getPersonalData().setSex(sexLocal);
+	    driver.getPersonalData().setDateOfBirth(dobLocal);
+	    driver.getPersonalData().setGender(genderLocal);
 
-	    if (esbdEntity != null) {
+	    if (in != null) {
 		driver.setFetched(true);
 
-		if (esbdEntity.getPersonal() != null) {
-		    driver.getPersonalData().setName(esbdEntity.getPersonal().getName());
-		    driver.getPersonalData().setSurename(esbdEntity.getPersonal().getSurename());
-		    driver.getPersonalData().setPatronymic(esbdEntity.getPersonal().getPatronymic());
+		if (in.getPersonal() != null) {
+		    driver.getPersonalData().setName(in.getPersonal().getName());
+		    driver.getPersonalData().setSurename(in.getPersonal().getSurename());
+		    driver.getPersonalData().setPatronymic(in.getPersonal().getPatronymic());
 		}
 
-		if (esbdEntity.getOrigin() != null) {
-		    driver.getResidenceData().setResident(esbdEntity.getOrigin().isResident());
-		    driver.getOriginData().setCountry(esbdEntity.getOrigin().getCountry());
+		if (in.getOrigin() != null) {
+		    driver.getResidenceData().setResident(in.getOrigin().isResident());
+		    driver.getOriginData().setCountry(in.getOrigin().getCountry());
 		}
 
-		if (esbdEntity.getContact() != null)
-		    driver.getResidenceData().setAddress(esbdEntity.getContact().getHomeAdress());
+		if (in.getContact() != null)
+		    driver.getResidenceData().setAddress(in.getContact().getHomeAdress());
 
-		if (esbdEntity.getOrigin().getCity() != null)
-		    driver.getResidenceData().setCity(esbdEntity.getOrigin().getCity());
+		if (in.getOrigin().getCity() != null)
+		    driver.getResidenceData().setCity(in.getOrigin().getCity());
 
-		if (esbdEntity.getIdentityCard() != null) {
-		    driver.getIdentityCardData().setNumber(esbdEntity.getIdentityCard().getNumber());
-		    driver.getIdentityCardData().setDateOfIssue(esbdEntity.getIdentityCard().getDateOfIssue());
-		    driver.getIdentityCardData().setType(esbdEntity.getIdentityCard().getIdentityCardType());
+		if (in.getIdentityCard() != null) {
+		    driver.getIdentityCardData().setNumber(in.getIdentityCard().getNumber());
+		    driver.getIdentityCardData().setDateOfIssue(in.getIdentityCard().getDateOfIssue());
+		    driver.getIdentityCardData().setType(in.getIdentityCard().getIdentityCardType());
 		    driver.getIdentityCardData()
-			    .setIssuingAuthority(esbdEntity.getIdentityCard().getIssuingAuthority());
+			    .setIssuingAuthority(in.getIdentityCard().getIssuingAuthority());
 		}
 
-		if (esbdEntity.getContact() != null) {
-		    driver.getContactData().setEmail(esbdEntity.getContact().getEmail());
-		    driver.getContactData().setPhone(esbdEntity.getContact().getPhone());
-		    driver.getContactData().setSiteUrl(esbdEntity.getContact().getSiteUrl());
+		if (in.getContact() != null) {
+		    driver.getContactData().setEmail(in.getContact().getEmail());
+		    driver.getContactData().setPhone(in.getContact().getPhone());
+		    driver.getContactData().setSiteUrl(in.getContact().getSiteUrl());
 		}
 
-		driver.setTaxPayerNumber(esbdEntity.getTaxPayerNumber());
+		driver.setTaxPayerNumber(in.getTaxPayerNumber());
 	    }
 	}
 
 	return driver;
     }
 
-    // PRIVATE STATIC
+    //
 
-    private PolicyDriver fillFromTaxpayerNumber(final PolicyDriver driver, final TaxpayerNumber taxpayerNumber) {
+    private PolicyDriver _fillFromTaxpayerNumber(final PolicyDriver driver, final TaxpayerNumber taxpayerNumber) {
+	return fillFromTaxpayerNumber(driver, taxpayerNumber, _getDefaultInsuranceClass());
+    }
+
+    static PolicyDriver fillFromTaxpayerNumber(final PolicyDriver driver, final TaxpayerNumber taxpayerNumber,
+	    InsuranceClassType defaultInsuranceClassType) {
 
 	if (driver.getIdNumber() == null)
 	    driver.setIdNumber(taxpayerNumber);
 
 	if (driver.getInsuranceClassType() == null)
-	    driver.setInsuranceClassType(_getDefaultInsuranceClass());
+	    driver.setInsuranceClassType(defaultInsuranceClassType);
 
-	if (driver.getPersonalData().getDayOfBirth() == null)
+	if (driver.getPersonalData().getDateOfBirth() == null)
 	    taxpayerNumber.optionalDateOfBirth() //
-		    .ifPresent(driver.getPersonalData()::setDayOfBirth);
+		    .ifPresent(driver.getPersonalData()::setDateOfBirth);
 
 	if (driver.getAgeClass() == null)
 	    taxpayerNumber.optionalDateOfBirth() //
 		    .map(PolicyDriverFacadeBean::obtainInsuredAgeClass)
 		    .ifPresent(driver::setAgeClass);
 
-	if (driver.getPersonalData().getSex() == null)
+	if (driver.getPersonalData().getGender() == null)
 	    taxpayerNumber.optionalGender()
 		    .map(PolicyDriverFacadeBean::convertKZLibSex)
-		    .ifPresent(driver.getPersonalData()::setSex);
+		    .ifPresent(driver.getPersonalData()::setGender);
 
 	return driver;
     }
 
-    private static Sex convertKZLibSex(final tech.lapsa.kz.taxpayer.Gender kzLibSex) {
+    //
+
+    static Sex convertKZLibSex(final tech.lapsa.kz.taxpayer.Gender kzLibSex) {
 	if (kzLibSex == null)
 	    return null;
 	switch (kzLibSex) {
@@ -294,20 +352,20 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	return null;
     }
 
-    private static InsuredAgeClass obtainInsuredAgeClass(final LocalDate dayOfBirth) {
+    static InsuredAgeClass obtainInsuredAgeClass(final LocalDate dayOfBirth) {
 	if (dayOfBirth == null)
 	    return null;
 	final int years = calculateAgeByDOB(dayOfBirth);
-	return _obtainInsuredAgeClass(years);
+	return obtainInsuredAgeClass(years);
     }
 
-    private static int calculateAgeByDOB(final LocalDate dob) {
+    static int calculateAgeByDOB(final LocalDate dob) {
 	if (dob == null)
 	    throw new NullPointerException();
 	return dob.until(LocalDate.now()).getYears();
     }
 
-    private static InsuredAgeClass _obtainInsuredAgeClass(final int years) {
+    static InsuredAgeClass obtainInsuredAgeClass(final int years) {
 	return years < 25 ? InsuredAgeClass.UNDER25 : InsuredAgeClass.OVER25;
     }
 }
