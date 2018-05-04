@@ -33,8 +33,6 @@ import tech.lapsa.kz.vehicle.VehicleType;
 @Stateless(name = PolicyVehicleFacade.BEAN_NAME)
 public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, PolicyVehicleFacadeRemote {
 
-    // READERS
-
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public List<PolicyVehicle> fetchAllByRegNumber(final VehicleRegNumber regNumber) throws IllegalArgument {
@@ -44,6 +42,29 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	    throw new IllegalArgument(e);
 	}
     }
+
+    @EJB
+    private VehicleEntityServiceRemote vehicleService;
+
+    private List<PolicyVehicle> _fetchAllByRegNumber(final VehicleRegNumber regNumber) throws IllegalArgumentException {
+	MyObjects.requireNonNull(regNumber, "regNumber");
+
+	final List<VehicleEntity> vv;
+	try {
+	    vv = vehicleService.getByRegNumber(regNumber);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	return MyOptionals.streamOf(vv) //
+		.orElseGet(Stream::empty) //
+		.map(this::_fillFromESBDEntity) //
+		.map(x -> _fillFromVehicleRegNumber(x, regNumber))
+		.collect(MyCollectors.unmodifiableList());
+    }
+
+    //
 
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -55,6 +76,25 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
+    private List<PolicyVehicle> _fetchAllByVINCode(final String vinCode) throws IllegalArgumentException {
+	MyStrings.requireNonEmpty(vinCode, "vinCode");
+
+	final List<VehicleEntity> vv;
+	try {
+	    vv = vehicleService.getByVINCode(vinCode);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	return MyOptionals.streamOf(vv) //
+		.orElseGet(Stream::empty) //
+		.map(this::_fillFromESBDEntity) //
+		.collect(MyCollectors.unmodifiableList());
+    }
+
+    //
+
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public PolicyVehicle fetchFirstByVINCode(final String vinCode) throws IllegalArgument, PolicyVehicleNotFound {
@@ -64,6 +104,28 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	    throw new IllegalArgument(e);
 	}
     }
+
+    private PolicyVehicle _fetchFirstByVINCode(final String vinCode)
+	    throws IllegalArgumentException, PolicyVehicleNotFound {
+	MyStrings.requireNonEmpty(vinCode, "vinCode");
+
+	final List<VehicleEntity> vv;
+	try {
+	    vv = vehicleService.getByVINCode(vinCode);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	return MyOptionals.streamOf(vv) //
+		.orElseGet(Stream::empty) //
+		.findFirst()
+		.map(this::_fillFromESBDEntity)
+		.orElseThrow(MyExceptions.supplier(PolicyVehicleNotFound::new,
+			"Policy vehicle not found with VIN code %1$s", vinCode));
+    }
+
+    //
 
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -76,6 +138,17 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
+    private PolicyVehicle _fetchFirstByRegNumber(final VehicleRegNumber regNumber)
+	    throws IllegalArgumentException, PolicyVehicleNotFound {
+	return _fetchAllByRegNumber(regNumber)
+		.stream()
+		.findFirst()
+		.orElseThrow(MyExceptions.supplier(PolicyVehicleNotFound::new,
+			"Policy vehicle not found with reg number %1$s", regNumber));
+    }
+
+    //
+
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public PolicyVehicle fetchLastByRegNumber(final VehicleRegNumber regNumber)
@@ -87,6 +160,17 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
+    private PolicyVehicle _fetchLastByRegNumber(final VehicleRegNumber regNumber)
+	    throws IllegalArgumentException, PolicyVehicleNotFound {
+	final List<PolicyVehicle> vv = _fetchAllByRegNumber(regNumber);
+	if (vv.isEmpty())
+	    throw MyExceptions.format(PolicyVehicleNotFound::new, "Policy vehicle not found with reg number %1$s",
+		    regNumber);
+	return vv.get(vv.size() - 1);
+    }
+
+    //
+
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public PolicyVehicle fetchFirstByRegNumberOrDefault(final VehicleRegNumber regNumber) throws IllegalArgument {
@@ -97,6 +181,19 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
+    private PolicyVehicle _fetchFirstByRegNumberOrDefault(final VehicleRegNumber regNumber)
+	    throws IllegalArgumentException {
+	try {
+	    return _fetchFirstByRegNumber(regNumber);
+	} catch (final PolicyVehicleNotFound e) {
+	    final PolicyVehicle pv = new PolicyVehicle();
+	    _fillFromVehicleRegNumber(pv, regNumber);
+	    return pv;
+	}
+    }
+
+    //
+
     @Override
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
     public PolicyVehicle fetchLastByRegNumberOrDefault(final VehicleRegNumber regNumber) throws IllegalArgument {
@@ -106,6 +203,19 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	    throw new IllegalArgument(e);
 	}
     }
+
+    private PolicyVehicle _fetchLastByRegNumberOrDefault(final VehicleRegNumber regNumber)
+	    throws IllegalArgumentException {
+	try {
+	    return _fetchLastByRegNumber(regNumber);
+	} catch (final PolicyVehicleNotFound e) {
+	    final PolicyVehicle pv = new PolicyVehicle();
+	    _fillFromVehicleRegNumber(pv, regNumber);
+	    return pv;
+	}
+    }
+
+    //
 
     @Override
     @Deprecated
@@ -118,6 +228,30 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
+    @Deprecated
+    private void _fetch(final PolicyVehicle vehicle) throws IllegalArgumentException, PolicyVehicleNotFound {
+	MyObjects.requireNonNull(vehicle, "vehicle");
+	_clearFetched(vehicle);
+
+	final PolicyVehicle fetched = _fetchFirstByVINCode(vehicle.getVinCode());
+	if (fetched == null)
+	    return;
+
+	vehicle.setFetched(fetched.isFetched());
+	vehicle.setVinCode(fetched.getVinCode());
+	vehicle.setVehicleAgeClass(fetched.getVehicleAgeClass());
+	vehicle.setYearOfManufacture(fetched.getYearOfManufacture());
+	vehicle.setVehicleClass(fetched.getVehicleClass());
+
+	vehicle.setColor(fetched.getColor());
+	vehicle.setModel(fetched.getModel());
+	vehicle.setManufacturer(fetched.getManufacturer());
+
+	vehicle.getCertificateData().setRegistrationNumber(fetched.getCertificateData().getRegistrationNumber());
+    }
+
+    //
+
     @Override
     @Deprecated
     @TransactionAttribute(TransactionAttributeType.SUPPORTS)
@@ -129,7 +263,25 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	}
     }
 
-    public PolicyVehicle fillFromESBDEntity(final InsuredVehicleEntity in) {
+    @Deprecated
+    private void _clearFetched(final PolicyVehicle vehicle) throws IllegalArgumentException {
+	MyObjects.requireNonNull(vehicle, "vehicle");
+	vehicle.setFetched(false);
+
+	vehicle.setFetched(false);
+	vehicle.setVehicleClass(null);
+	vehicle.setVehicleAgeClass(null);
+	vehicle.setColor(null);
+	vehicle.setManufacturer(null);
+	vehicle.setModel(null);
+	vehicle.setYearOfManufacture(null);
+
+	vehicle.getCertificateData().setRegistrationNumber(null);
+    }
+
+    //
+
+    static PolicyVehicle __fillFromESBDEntity(final InsuredVehicleEntity in) {
 	if (in == null)
 	    return new PolicyVehicle();
 
@@ -158,154 +310,13 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	return out;
     }
 
-    // MODIFIERS
-
-    // PRIVATE
-
-    @EJB
-    private VehicleEntityServiceRemote vehicleService;
-
-    @Deprecated
-    private void _clearFetched(final PolicyVehicle vehicle) throws IllegalArgumentException {
-	MyObjects.requireNonNull(vehicle, "vehicle");
-	vehicle.setFetched(false);
-
-	vehicle.setFetched(false);
-	vehicle.setVehicleClass(null);
-	vehicle.setVehicleAgeClass(null);
-	vehicle.setColor(null);
-	vehicle.setManufacturer(null);
-	vehicle.setModel(null);
-	vehicle.setYearOfManufacture(null);
-
-	vehicle.getCertificateData().setRegistrationNumber(null);
-    }
-
-    @Deprecated
-    private void _fetch(final PolicyVehicle vehicle) throws IllegalArgumentException, PolicyVehicleNotFound {
-	MyObjects.requireNonNull(vehicle, "vehicle");
-	_clearFetched(vehicle);
-
-	final PolicyVehicle fetched = _fetchFirstByVINCode(vehicle.getVinCode());
-	if (fetched == null)
-	    return;
-
-	vehicle.setFetched(fetched.isFetched());
-	vehicle.setVinCode(fetched.getVinCode());
-	vehicle.setVehicleAgeClass(fetched.getVehicleAgeClass());
-	vehicle.setYearOfManufacture(fetched.getYearOfManufacture());
-	vehicle.setVehicleClass(fetched.getVehicleClass());
-
-	vehicle.setColor(fetched.getColor());
-	vehicle.setModel(fetched.getModel());
-	vehicle.setManufacturer(fetched.getManufacturer());
-
-	vehicle.getCertificateData().setRegistrationNumber(fetched.getCertificateData().getRegistrationNumber());
-    }
-
-    private PolicyVehicle _fetchFirstByVINCode(final String vinCode)
-	    throws IllegalArgumentException, PolicyVehicleNotFound {
-
-	MyStrings.requireNonEmpty(vinCode, "vinCode");
-
-	final List<VehicleEntity> vv;
-	try {
-	    vv = vehicleService.getByVINCode(vinCode);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-
-	return MyOptionals.streamOf(vv) //
-		.orElseGet(Stream::empty) //
-		.findFirst()
-		.map(this::fillFromESBDEntity)
-		.orElseThrow(MyExceptions.supplier(PolicyVehicleNotFound::new,
-			"Policy vehicle not found with VIN code %1$s", vinCode));
-    }
-
     //
 
-    private List<PolicyVehicle> _fetchAllByVINCode(final String vinCode) throws IllegalArgumentException {
-	MyStrings.requireNonEmpty(vinCode, "vinCode");
-
-	final List<VehicleEntity> vv;
-	try {
-	    vv = vehicleService.getByVINCode(vinCode);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-
-	return MyOptionals.streamOf(vv) //
-		.orElseGet(Stream::empty) //
-		.map(this::fillFromESBDEntity) //
-		.collect(MyCollectors.unmodifiableList());
+    private PolicyVehicle _fillFromESBDEntity(final VehicleEntity esbdEntity) {
+	return fillFromESBDEntity(esbdEntity);
     }
 
-    //
-
-    private List<PolicyVehicle> _fetchAllByRegNumber(final VehicleRegNumber regNumber) throws IllegalArgumentException {
-	MyObjects.requireNonNull(regNumber, "regNumber");
-
-	final List<VehicleEntity> vv;
-	try {
-	    vv = vehicleService.getByRegNumber(regNumber);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-
-	return MyOptionals.streamOf(vv) //
-		.orElseGet(Stream::empty) //
-		.map(this::fillFromESBDEntity) //
-		.map(x -> fillFromVehicleRegNumber(x, regNumber))
-		.collect(MyCollectors.unmodifiableList());
-    }
-
-    private PolicyVehicle _fetchFirstByRegNumber(final VehicleRegNumber regNumber)
-	    throws IllegalArgumentException, PolicyVehicleNotFound {
-	return _fetchAllByRegNumber(regNumber)
-		.stream()
-		.findFirst()
-		.orElseThrow(MyExceptions.supplier(PolicyVehicleNotFound::new,
-			"Policy vehicle not found with reg number %1$s", regNumber));
-    }
-
-    private PolicyVehicle _fetchLastByRegNumber(final VehicleRegNumber regNumber)
-	    throws IllegalArgumentException, PolicyVehicleNotFound {
-	final List<PolicyVehicle> vv = _fetchAllByRegNumber(regNumber);
-	if (vv.isEmpty())
-	    throw MyExceptions.format(PolicyVehicleNotFound::new, "Policy vehicle not found with reg number %1$s",
-		    regNumber);
-	return vv.get(vv.size() - 1);
-    }
-
-    private PolicyVehicle _fetchFirstByRegNumberOrDefault(final VehicleRegNumber regNumber)
-	    throws IllegalArgumentException {
-	try {
-	    return _fetchFirstByRegNumber(regNumber);
-	} catch (final PolicyVehicleNotFound e) {
-	    final PolicyVehicle pv = new PolicyVehicle();
-	    fillFromVehicleRegNumber(pv, regNumber);
-	    return pv;
-	}
-    }
-
-    private PolicyVehicle _fetchLastByRegNumberOrDefault(final VehicleRegNumber regNumber)
-	    throws IllegalArgumentException {
-	try {
-	    return _fetchLastByRegNumber(regNumber);
-	} catch (final PolicyVehicleNotFound e) {
-	    final PolicyVehicle pv = new PolicyVehicle();
-	    fillFromVehicleRegNumber(pv, regNumber);
-	    return pv;
-	}
-    }
-
-    // PRIVATE STATIC
-
-    public PolicyVehicle fillFromESBDEntity(final VehicleEntity esbdEntity) {
+    static PolicyVehicle fillFromESBDEntity(final VehicleEntity esbdEntity) {
 	final PolicyVehicle vehicle = new PolicyVehicle();
 
 	if (esbdEntity != null) {
@@ -331,7 +342,14 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	return vehicle;
     }
 
-    private static PolicyVehicle fillFromVehicleRegNumber(final PolicyVehicle vehicle,
+    //
+
+    private PolicyVehicle _fillFromVehicleRegNumber(final PolicyVehicle vehicle,
+	    final VehicleRegNumber vehicleRegNumber) {
+	return fillFromVehicleRegNumber(vehicle, vehicleRegNumber);
+    }
+
+    static PolicyVehicle fillFromVehicleRegNumber(final PolicyVehicle vehicle,
 	    final VehicleRegNumber vehicleRegNumber) {
 
 	if (vehicle.getCertificateData().getRegistrationNumber() == null)
@@ -349,7 +367,9 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	return vehicle;
     }
 
-    private static VehicleClass converKZLibVehcileType(final VehicleType y) {
+    //
+
+    static VehicleClass converKZLibVehcileType(final VehicleType y) {
 	switch (y) {
 	case MOTORBIKE:
 	    return VehicleClass.MOTO;
