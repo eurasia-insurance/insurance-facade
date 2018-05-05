@@ -9,7 +9,7 @@
 
 	<groupId>tech.lapsa.insurance</groupId>
 	<artifactId>insurance-facade-root</artifactId>
-	<version>1.4.2-SNAPSHOT</version>
+	<version>1.5-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Insurance Lib : Facade</name>
