@@ -11,11 +11,9 @@ import javax.ejb.TransactionAttributeType;
 import com.lapsa.insurance.domain.CalculationData;
 import com.lapsa.insurance.domain.CompanyData;
 import com.lapsa.insurance.domain.InsurancePeriodData;
-import com.lapsa.insurance.domain.InsuranceProductTerminationReason;
 import com.lapsa.insurance.domain.InsurantData;
 import com.lapsa.insurance.domain.PersonalData;
 import com.lapsa.insurance.domain.policy.Policy;
-import com.lapsa.insurance.elements.CancelationReason;
 
 import tech.lapsa.esbd.dao.NotFound;
 import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService;
@@ -158,7 +156,7 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 	}
 
 	out.setDateOfTermination(in.getDateOfCancelation());
-	out.setTerminationReason(convertCancelationReason2TerminationReason(in.getCancelationReasonType()));
+	out.setTerminationReason(in.getCancelationReasonType());
 
 	// in.getReissuedPolicyId();
 	// in.getComments();
@@ -183,29 +181,5 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 	out.getPeriod().setTo(in.getValidTill());
 
 	return out;
-    }
-
-    static InsuranceProductTerminationReason convertCancelationReason2TerminationReason(final CancelationReason in) {
-	if (in == null)
-	    return null;
-	switch (in) {
-	case CANCELATION:
-	    return InsuranceProductTerminationReason.CANCELATION;
-	case CANCELATION_AND_RENEW:
-	    return InsuranceProductTerminationReason.CANCELATION_AND_RENEW;
-	case HUMAN_FAILURE:
-	    return InsuranceProductTerminationReason.HUMAN_FAILURE;
-	case ISSUED_DUPLICATE_POLICY:
-	    return InsuranceProductTerminationReason.ISSUED_DUPLICATE_POLICY;
-	case MADE_INSURANCE_PAYMENT:
-	    return InsuranceProductTerminationReason.MADE_INSURANCE_PAYMENT;
-	case OTHER:
-	    return InsuranceProductTerminationReason.OTHER;
-	case POLICY_LOST:
-	    return InsuranceProductTerminationReason.POLICY_LOST;
-	case PREMIUM_COST_ERROR:
-	    return InsuranceProductTerminationReason.PREMIUM_COST_ERROR;
-	}
-	return null;
     }
 }
