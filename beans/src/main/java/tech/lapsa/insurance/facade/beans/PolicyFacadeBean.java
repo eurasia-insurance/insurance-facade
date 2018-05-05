@@ -156,13 +156,10 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 	}
 
 	out.setDateOfTermination(in.getDateOfCancelation());
-
-	// in.getCancelationReasonType();
+	out.setTerminationReason(in.getCancelationReasonType());
 
 	// in.getReissuedPolicyId();
-
 	// in.getComments();
-
 	// in.getModified();
 
 	in.getInsurer();
@@ -185,5 +182,4 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 
 	return out;
     }
-
 }
