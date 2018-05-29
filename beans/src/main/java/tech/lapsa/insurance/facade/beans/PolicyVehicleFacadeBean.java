@@ -14,9 +14,9 @@ import com.lapsa.insurance.domain.policy.PolicyVehicle;
 import com.lapsa.insurance.elements.VehicleAgeClass;
 import com.lapsa.insurance.elements.VehicleClass;
 
-import tech.lapsa.esbd.dao.entities.InsuredVehicleEntity;
-import tech.lapsa.esbd.dao.entities.VehicleEntity;
-import tech.lapsa.esbd.dao.entities.VehicleEntityService.VehicleEntityServiceRemote;
+import tech.lapsa.esbd.dao.entities.complex.VehicleEntityService.VehicleEntityServiceRemote;
+import tech.lapsa.esbd.domain.complex.PolicyVehicleEntity;
+import tech.lapsa.esbd.domain.complex.VehicleEntity;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade.PolicyVehicleFacadeLocal;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade.PolicyVehicleFacadeRemote;
@@ -281,7 +281,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 
     //
 
-    static PolicyVehicle __fillFromESBDEntity(final InsuredVehicleEntity in) {
+    static PolicyVehicle __fillFromESBDEntity(final PolicyVehicleEntity in) {
 	if (in == null)
 	    return new PolicyVehicle();
 
@@ -290,9 +290,8 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 	if (in.getCertificate() != null) {
 	    out.setCertificateData(new VehicleCertificateData());
 	    out.getCertificateData().setDateOfIssue(in.getCertificate().getDateOfIssue());
-	    out.getCertificateData().setNumber(in.getCertificate().getCertificateNumber());
-	    out.getCertificateData()
-		    .setRegistrationNumber(VehicleRegNumber.assertValid(in.getCertificate().getRegistrationNumber()));
+	    out.getCertificateData().setNumber(in.getCertificate().getNumber());
+	    out.getCertificateData().setRegistrationNumber(in.getCertificate().getRegistrationNumber());
 	    out.setArea(in.getCertificate().getRegistrationRegion());
 	}
 
