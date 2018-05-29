@@ -20,11 +20,11 @@ import com.lapsa.insurance.elements.InsuredAgeClass;
 import com.lapsa.insurance.elements.Sex;
 
 import tech.lapsa.esbd.dao.NotFound;
-import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService;
-import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService.InsuranceClassTypeServiceRemote;
-import tech.lapsa.esbd.dao.entities.InsuredDriverEntity;
-import tech.lapsa.esbd.dao.entities.SubjectPersonEntity;
-import tech.lapsa.esbd.dao.entities.SubjectPersonEntityService.SubjectPersonEntityServiceRemote;
+import tech.lapsa.esbd.dao.entities.complex.SubjectPersonEntityService.SubjectPersonEntityServiceRemote;
+import tech.lapsa.esbd.dao.resolver.InsuranceClassTypeResolverService;
+import tech.lapsa.esbd.dao.resolver.InsuranceClassTypeResolverService.InsuranceClassTypeResolverServiceRemote;
+import tech.lapsa.esbd.domain.complex.PolicyDriverEntity;
+import tech.lapsa.esbd.domain.complex.SubjectPersonEntity;
 import tech.lapsa.insurance.facade.PolicyDriverFacade;
 import tech.lapsa.insurance.facade.PolicyDriverFacade.PolicyDriverFacadeLocal;
 import tech.lapsa.insurance.facade.PolicyDriverFacade.PolicyDriverFacadeRemote;
@@ -46,7 +46,7 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
     }
 
     @EJB
-    private InsuranceClassTypeServiceRemote insuranceClassTypeService;
+    private InsuranceClassTypeResolverServiceRemote insuranceClassTypeService;
 
     private InsuranceClassType _getDefaultInsuranceClass() {
 	return insuranceClassTypeService.getDefault();
@@ -176,8 +176,8 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 
     //
 
-    static PolicyDriver __fillFromESBDEntity(final InsuredDriverEntity in,
-	    final InsuranceClassTypeService insuranceClassTypeService) {
+    static PolicyDriver __fillFromESBDEntity(final PolicyDriverEntity in,
+	    final InsuranceClassTypeResolverService insuranceClassTypeService) {
 
 	if (in == null)
 	    return new PolicyDriver();
@@ -186,7 +186,7 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 
 	out.setAgeClass(in.getAgeClass());
 	out.setExpirienceClass(in.getExpirienceClass());
-	out.setInsuranceClassType(in.getInsuraceClassType());
+	out.setInsuranceClassType(in.getInsuranceClassType());
 
 	final boolean hasAnyPrivilege = MyObjects.nonNull(in.getPrivilegerInfo())
 		|| MyObjects.nonNull(in.getGpwParticipantInfo())
@@ -219,7 +219,7 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
     }
 
     static PolicyDriver fillFromESBDEntity(final SubjectPersonEntity in,
-	    final InsuranceClassTypeService insuranceClassTypeService) {
+	    final InsuranceClassTypeResolverService insuranceClassTypeService) {
 
 	final PolicyDriver driver = new PolicyDriver();
 
@@ -232,7 +232,7 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 	    {
 		insuranceClassTypeLocal = insuranceClassTypeService.getDefault();
 		try {
-		    insuranceClassTypeLocal = insuranceClassTypeService.getForSubject(in);
+		    insuranceClassTypeLocal = insuranceClassTypeService.resolveForSubject(in);
 		} catch (final NotFound | IllegalArgument e) {
 		}
 	    }
@@ -275,7 +275,7 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 		}
 
 		if (in.getOrigin() != null) {
-		    driver.getResidenceData().setResident(in.getOrigin().isResident());
+		    driver.getResidenceData().setResident(in.isResident());
 		    driver.getOriginData().setCountry(in.getOrigin().getCountry());
 		}
 
