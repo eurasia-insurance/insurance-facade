@@ -16,12 +16,12 @@ import com.lapsa.insurance.domain.PersonalData;
 import com.lapsa.insurance.domain.policy.Policy;
 
 import tech.lapsa.esbd.dao.NotFound;
-import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService;
-import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService.InsuranceClassTypeServiceRemote;
-import tech.lapsa.esbd.dao.entities.PolicyEntity;
-import tech.lapsa.esbd.dao.entities.PolicyEntityService.PolicyEntityServiceRemote;
-import tech.lapsa.esbd.dao.entities.SubjectCompanyEntity;
-import tech.lapsa.esbd.dao.entities.SubjectPersonEntity;
+import tech.lapsa.esbd.dao.entities.complex.PolicyEntityService.PolicyEntityServiceRemote;
+import tech.lapsa.esbd.dao.resolver.InsuranceClassTypeResolverService;
+import tech.lapsa.esbd.dao.resolver.InsuranceClassTypeResolverService.InsuranceClassTypeResolverServiceRemote;
+import tech.lapsa.esbd.domain.complex.PolicyEntity;
+import tech.lapsa.esbd.domain.complex.SubjectCompanyEntity;
+import tech.lapsa.esbd.domain.complex.SubjectPersonEntity;
 import tech.lapsa.insurance.facade.PolicyFacade;
 import tech.lapsa.insurance.facade.PolicyFacade.PolicyFacadeLocal;
 import tech.lapsa.insurance.facade.PolicyFacade.PolicyFacadeRemote;
@@ -70,14 +70,14 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
     //
 
     @EJB
-    private InsuranceClassTypeServiceRemote insuranceClassTypeService;
+    private InsuranceClassTypeResolverServiceRemote insuranceClassTypeService;
 
     private Policy _fillFromESBDEntity(final PolicyEntity in) {
 	return fillFromESBDEntity(in, insuranceClassTypeService);
     }
 
     static Policy fillFromESBDEntity(final PolicyEntity in,
-	    final InsuranceClassTypeService insuranceClassTypeService) {
+	    final InsuranceClassTypeResolverService insuranceClassTypeService) {
 	if (in == null)
 	    return new Policy();
 
@@ -155,8 +155,10 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 	    }
 	}
 
-	out.setDateOfTermination(in.getDateOfCancelation());
-	out.setTerminationReason(in.getCancelationReasonType());
+	if (in.getCancelation() != null) {
+	    out.setDateOfTermination(in.getCancelation().getDateOf());
+	    out.setTerminationReason(in.getCancelation().getReason());
+	}
 
 	// in.getReissuedPolicyId();
 	// in.getComments();

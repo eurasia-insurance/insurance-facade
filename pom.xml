@@ -4,12 +4,12 @@
 	<parent>
 		<groupId>tech.lapsa.maven</groupId>
 		<artifactId>maven-general</artifactId>
-		<version>3.1</version>
+		<version>3.2</version>
 	</parent>
 
 	<groupId>tech.lapsa.insurance</groupId>
 	<artifactId>insurance-facade-root</artifactId>
-	<version>1.4.4-SNAPSHOT</version>
+	<version>1.5-SNAPSHOT</version>
 	<packaging>pom</packaging>
 
 	<name>Insurance Lib : Facade</name>
@@ -29,7 +29,7 @@
 		<insurance-shared.version>1.0</insurance-shared.version>
 		<epayment-shared.version>1.0.3</epayment-shared.version>
 		<!-- EJB clients -->
-		<esbd-dao-client.version>2.2.1</esbd-dao-client.version>
+		<esbd-dao-client.version>3.0-SNAPSHOT</esbd-dao-client.version>
 		<epayment-facade-client.version>1.2.3</epayment-facade-client.version>
 		<insurance-dao-client.version>1.3.4</insurance-dao-client.version>
 		<insurance-facade-client.version>1.4.3</insurance-facade-client.version>
