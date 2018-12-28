@@ -14,9 +14,9 @@ import com.lapsa.insurance.domain.policy.PolicyVehicle;
 import com.lapsa.insurance.elements.VehicleAgeClass;
 import com.lapsa.insurance.elements.VehicleClass;
 
-import tech.lapsa.esbd.dao.entities.InsuredVehicleEntity;
-import tech.lapsa.esbd.dao.entities.VehicleEntity;
 import tech.lapsa.esbd.dao.entities.VehicleEntityService.VehicleEntityServiceRemote;
+import tech.lapsa.esbd.domain.entities.InsuredVehicleEntity;
+import tech.lapsa.esbd.domain.entities.VehicleEntity;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade.PolicyVehicleFacadeLocal;
 import tech.lapsa.insurance.facade.PolicyVehicleFacade.PolicyVehicleFacadeRemote;
