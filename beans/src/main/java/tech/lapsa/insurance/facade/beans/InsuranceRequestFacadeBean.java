@@ -13,8 +13,11 @@ import javax.ejb.TransactionAttributeType;
 import com.lapsa.insurance.domain.CalculationData;
 import com.lapsa.insurance.domain.InsuranceProduct;
 import com.lapsa.insurance.domain.InsuranceRequest;
+import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.RequesterData;
 import com.lapsa.insurance.elements.PaymentStatus;
+import com.lapsa.insurance.elements.ProgressStatus;
+import com.lapsa.insurance.elements.RequestStatus;
 import com.lapsa.international.localization.LocalizationLanguage;
 
 import tech.lapsa.epayment.domain.Invoice;
@@ -48,14 +51,34 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public <Y extends InsuranceRequest> Y acceptAndReply(final Y request) throws IllegalArgument {
+    public <T extends InsuranceRequest> T newRequest(final T request) throws IllegalArgument {
 	try {
-	    return _acceptAndReply(request);
+	    return _newRequest(request);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
     }
 
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T newAcceptedRequest(final T request) throws IllegalArgument {
+	try {
+	    return _acceptRequest(_newRequest(request));
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
+
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T acceptRequest(T request) throws IllegalArgument {
+	try {
+	    return _acceptRequest(request);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public void completePayment(final Integer id,
@@ -91,13 +114,11 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @EJB
     private InsuranceRequestDAORemote dao;
 
-    private <Y extends InsuranceRequest> Y _acceptAndReply(final Y insuranceRequest) throws IllegalArgumentException {
+    private <T extends InsuranceRequest> T _acceptRequest(final T insuranceRequest) throws IllegalArgumentException {
 
-	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
-
-	Requests.preSave(insuranceRequest);
-
-	final Y ir;
+	setupPaymentOrder(insuranceRequest);
+	
+	final T ir;
 	try {
 	    ir = dao.save(insuranceRequest);
 	} catch (final IllegalArgument e) {
@@ -105,7 +126,23 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw new EJBException(e.getMessage());
 	}
 
-	setupPaymentOrder(ir);
+	return ir;
+    }
+
+    private <T extends InsuranceRequest> T _newRequest(final T request) throws IllegalArgumentException {
+
+	MyObjects.requireNonNull(request, "insuranceRequest");
+
+	setupGeneral(request);
+
+	final T ir;
+	try {
+	    ir = dao.save(request);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
 	setupNotifications(ir);
 
 	try {
@@ -123,6 +160,25 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	);
 
 	return ir;
+    }
+
+
+    private <T extends InsuranceRequest> T setupGeneral(final T request) {
+	if (request.getCreated() == null)
+	    request.setCreated(Instant.now());
+
+	if (request.getStatus() == null)
+	    request.setStatus(RequestStatus.OPEN);
+
+	if (request.getProgressStatus() == null)
+	    request.setProgressStatus(ProgressStatus.NEW);
+
+	if (request.getPayment() == null)
+	    request.setPayment(new PaymentData());
+	if (request.getPayment().getStatus() == null)
+	    request.getPayment().setStatus(PaymentStatus.UNDEFINED);
+
+	return request;
     }
 
     private void _completePayment(final Integer id,
@@ -194,6 +250,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     private EpaymentFacadeRemote epayments;
 
     private <T extends InsuranceRequest> T setupPaymentOrder(final T request) throws IllegalArgumentException {
+
 	if (MyStrings.nonEmpty(request.getPayment().getInvoiceNumber()))
 	    return request;
 
