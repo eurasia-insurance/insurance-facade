@@ -19,6 +19,7 @@ import com.lapsa.insurance.elements.PaymentStatus;
 import com.lapsa.insurance.elements.ProgressStatus;
 import com.lapsa.insurance.elements.RequestStatus;
 import com.lapsa.international.localization.LocalizationLanguage;
+import com.lapsa.international.phone.PhoneNumber;
 
 import tech.lapsa.epayment.domain.Invoice;
 import tech.lapsa.epayment.domain.Invoice.InvoiceBuilder;
@@ -40,6 +41,7 @@ import tech.lapsa.java.commons.function.MyObjects;
 import tech.lapsa.java.commons.function.MyOptionals;
 import tech.lapsa.java.commons.function.MyStrings;
 import tech.lapsa.java.commons.logging.MyLogger;
+import tech.lapsa.kz.taxpayer.TaxpayerNumber;
 import tech.lapsa.patterns.dao.NotFound;
 
 @Stateless(name = InsuranceRequestFacade.BEAN_NAME)
@@ -69,16 +71,34 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	}
     }
 
-
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public <T extends InsuranceRequest> T acceptRequest(T request) throws IllegalArgument {
+    public <T extends InsuranceRequest> T acceptRequest(T request,
+	    String invoicePayeeName,
+	    Currency invoiceCurrency,
+	    LocalizationLanguage invoiceLanguage,
+	    String invoicePayeeEmail,
+	    PhoneNumber invoicePayeePhone,
+	    TaxpayerNumber invoicePayeeTaxpayerNumber,
+	    String invoiceProductName,
+	    Double invoiceAmount,
+	    Integer invoiceQuantity) throws IllegalArgument {
 	try {
-	    return _acceptRequest(request);
+	    return _acceptRequest(request,
+		    invoicePayeeName,
+		    invoiceCurrency,
+		    invoiceLanguage,
+		    invoicePayeeEmail,
+		    invoicePayeePhone,
+		    invoicePayeeTaxpayerNumber,
+		    invoiceProductName,
+		    invoiceAmount,
+		    invoiceQuantity);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
     }
+
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public void completePayment(final Integer id,
@@ -114,13 +134,47 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @EJB
     private InsuranceRequestDAORemote dao;
 
-    private <T extends InsuranceRequest> T _acceptRequest(final T insuranceRequest) throws IllegalArgumentException {
+    @Deprecated
+    private <T extends InsuranceRequest> T _acceptRequest(final T request) throws IllegalArgumentException {
 
-	setupPaymentOrder(insuranceRequest);
-	
+	setupPaymentOrder(request);
+
 	final T ir;
 	try {
-	    ir = dao.save(insuranceRequest);
+	    ir = dao.save(request);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	return ir;
+    }
+
+    private <T extends InsuranceRequest> T _acceptRequest(final T request,
+	    String invoicePayeeName,
+	    Currency invoiceCurrency,
+	    LocalizationLanguage invoiceLanguage,
+	    String invoicePayeeEmail,
+	    PhoneNumber invoicePayeePhone,
+	    TaxpayerNumber invoicePayeeTaxpayerNumber,
+	    String invoiceProductName,
+	    Double invoiceAmount,
+	    Integer invoiceQuantity) throws IllegalArgumentException {
+
+	setupPaymentOrder(request,
+		invoicePayeeName,
+		invoiceCurrency,
+		invoiceLanguage,
+		invoicePayeeEmail,
+		invoicePayeePhone,
+		invoicePayeeTaxpayerNumber,
+		invoiceProductName,
+		invoiceAmount,
+		invoiceQuantity);
+
+	final T ir;
+	try {
+	    ir = dao.save(request);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
@@ -161,7 +215,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
 	return ir;
     }
-
 
     private <T extends InsuranceRequest> T setupGeneral(final T request) {
 	if (request.getCreated() == null)
@@ -249,6 +302,66 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @EJB
     private EpaymentFacadeRemote epayments;
 
+    private <T extends InsuranceRequest> T setupPaymentOrder(final T request,
+	    String invoicePayeeName,
+	    Currency invoiceCurrency,
+	    LocalizationLanguage invoiceLanguage,
+	    String invoicePayeeEmail,
+	    PhoneNumber invoicePayeePhone,
+	    TaxpayerNumber invoicePayeeTaxpayerNumber,
+	    String invoiceProductName,
+	    Double invoiceAmount,
+	    Integer invoiceQuantity)
+	    throws IllegalArgumentException {
+	MyObjects.requireNonNull(request, "request");
+	MyObjects.requireNonNull(request.getId(), "request.id");
+	final InvoiceBuilder builder = Invoice.builder() //
+		.withGeneratedNumber() //
+		.withConsumerName(MyStrings.requireNonEmpty(invoicePayeeName, "invoicePayeeName")) //
+		.withCurrency(MyObjects.requireNonNull(invoiceCurrency, "invoiceCurrency")) //
+		.withConsumerPreferLanguage(MyObjects.requireNonNull(invoiceLanguage, "invoiceLanguage"))
+		//
+		.withExternalId(request.getId()) //
+		.withConsumerEmail(MyStrings.requireNonEmpty(invoicePayeeEmail, "invoicePayeeEmail")) //
+		.withConsumerPhone(MyObjects.requireNonNull(invoicePayeePhone, "invoicePayeePhone")) //
+		.withConsumerTaxpayerNumber(
+			MyObjects.requireNonNull(invoicePayeeTaxpayerNumber, "invoicePayeeTaxpayerNumber")) //
+		.withItem(MyStrings.requireNonEmpty(invoiceProductName, "invoiceProductName"),
+			MyNumbers.requirePositive(invoiceQuantity, "invoiceQuantity"),
+			MyNumbers.requirePositive(invoiceAmount, "invoiceAmount"));
+
+	final Invoice invoice;
+	try {
+	    invoice = epayments.invoiceAccept(builder);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+
+	PaymentData p = request.getPayment();
+	if (p == null) {
+	    p = new PaymentData();
+	    request.setPayment(p);
+	}
+	p.setStatus(PaymentStatus.PENDING);
+	p.setInvoiceProductName(invoiceProductName);
+
+	p.setInvoiceQuantity(invoiceQuantity);
+	p.setInvoiceAmount(invoiceAmount);
+	p.setInvoiceCurrency(invoiceCurrency);
+
+	p.setInvoicePayeeName(invoicePayeeName);
+	p.setInvoicePayeeEmail(invoicePayeeEmail);
+	p.setInvoicePayeePhone(invoicePayeePhone);
+	p.setInvoicePayeeTaxpayerNumber(invoicePayeeTaxpayerNumber);
+	p.setInvoiceLanguage(invoiceLanguage);
+
+	p.setInvoiceNumber(invoice.getNumber());
+
+	return request;
+    }
+
+    @Deprecated
     private <T extends InsuranceRequest> T setupPaymentOrder(final T request) throws IllegalArgumentException {
 
 	if (MyStrings.nonEmpty(request.getPayment().getInvoiceNumber()))
@@ -262,49 +375,30 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	if (!ocd.isPresent())
 	    return request; // for callback requests
 
-	final LocalizationLanguage lang = ord.map(RequesterData::getPreferLanguage) //
-		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine the language"));
-
-	final String itemName = MyOptionals.of(request.getProductType()) //
-		.map(x -> x.regular(lang.getLocale())) //
-		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine an item name"));
-
-	final Integer quantity = 1;
-
-	final Double amount = ocd.map(CalculationData::getAmount) //
+	final Double invoiceAmount = ocd.map(CalculationData::getAmount) //
 		.filter(MyNumbers::nonZero) //
 		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine an premium amount"));
 
-	final String consumerName = ord.map(RequesterData::getName) //
-		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine a consumer name"));
-
-	final Currency currency = ocd.map(CalculationData::getCurrency) //
+	final Currency invoiceCurrency = ocd.map(CalculationData::getCurrency) //
 		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine an premium currency"));
 
-	final InvoiceBuilder builder = Invoice.builder() //
-		.withGeneratedNumber() //
-		.withConsumerName(consumerName) //
-		.withCurrency(currency) //
-		.withConsumerPreferLanguage(lang)
-		//
-		.withExternalId(request.getId()) //
-		.withConsumerEmail(ord.map(RequesterData::getEmail)) //
-		.withConsumerPhone(ord.map(RequesterData::getPhone)) //
-		.withConsumerTaxpayerNumber(ord.map(RequesterData::getIdNumber)) //
-		.withItem(itemName, quantity, amount);
+	final LocalizationLanguage invoiceLanguage = ord.map(RequesterData::getPreferLanguage) //
+		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine the language"));
 
-	final Invoice invoice;
-	try {
-	    invoice = epayments.invoiceAccept(builder);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
+	final String invoiceProductName = MyOptionals.of(request.getProductType()) //
+		.map(x -> x.regular(invoiceLanguage.getLocale())) //
+		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine an item name"));
 
-	request.getPayment().setInvoiceNumber(invoice.getNumber());
-	request.getPayment().setStatus(PaymentStatus.PENDING);
+	final Integer invoiceQuantity = 1;
 
-	return request;
+	final String invoicePayeeName = ord.map(RequesterData::getName) //
+		.orElseThrow(MyExceptions.illegalArgumentSupplier("Can't determine a consumer name"));
+
+	final String invoicePayeeEmail = ord.map(RequesterData::getEmail).orElse(null);
+	final PhoneNumber invoicePayeePhone = ord.map(RequesterData::getPhone).orElse(null);
+	final TaxpayerNumber invoucePayeeTaxpayerNumber = ord.map(RequesterData::getIdNumber).orElse(null);
+	return setupPaymentOrder(request, invoicePayeeName, invoiceCurrency, invoiceLanguage, invoicePayeeEmail,
+		invoicePayeePhone, invoucePayeeTaxpayerNumber, invoiceProductName, invoiceAmount, invoiceQuantity);
     }
 
     private <T extends InsuranceRequest> T setupNotifications(final T request) throws IllegalArgumentException {
