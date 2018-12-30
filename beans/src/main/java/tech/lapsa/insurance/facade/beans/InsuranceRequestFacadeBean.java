@@ -324,8 +324,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		.withExternalId(request.getId()) //
 		.withConsumerEmail(MyStrings.requireNonEmpty(invoicePayeeEmail, "invoicePayeeEmail")) //
 		.withConsumerPhone(MyObjects.requireNonNull(invoicePayeePhone, "invoicePayeePhone")) //
-		.withConsumerTaxpayerNumber(
-			MyObjects.requireNonNull(invoicePayeeTaxpayerNumber, "invoicePayeeTaxpayerNumber")) //
+		.withConsumerTaxpayerNumber(MyOptionals.of(invoicePayeeTaxpayerNumber)) //
 		.withItem(MyStrings.requireNonEmpty(invoiceProductName, "invoiceProductName"),
 			MyNumbers.requirePositive(invoiceQuantity, "invoiceQuantity"),
 			MyNumbers.requirePositive(invoiceAmount, "invoiceAmount"));
