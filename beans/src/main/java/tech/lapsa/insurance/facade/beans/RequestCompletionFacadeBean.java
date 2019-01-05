@@ -218,7 +218,7 @@ public class RequestCompletionFacadeBean
 	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
 	    if (ir.getPayment().getStatus() == PaymentStatus.DONE)
 		throw MyExceptions.illegalStateFormat("Request already paid");
-	    ir.setTransactionStatus(ContractStatus.NOT_COMPLETED);
+	    ir.setContractStatus(ContractStatus.CANCELED);
 	    ir.getPayment().setStatus(PaymentStatus.CANCELED);
 	    ir.setTransactionProblem(transactionProblem);
 	    ir.setAgreementNumber(null);
