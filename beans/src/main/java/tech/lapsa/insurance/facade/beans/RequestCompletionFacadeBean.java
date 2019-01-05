@@ -18,8 +18,8 @@ import com.lapsa.insurance.domain.Request;
 import com.lapsa.insurance.domain.crm.User;
 import com.lapsa.insurance.elements.PaymentStatus;
 import com.lapsa.insurance.elements.ProgressStatus;
-import com.lapsa.insurance.elements.TransactionProblem;
-import com.lapsa.insurance.elements.TransactionStatus;
+import com.lapsa.insurance.elements.RequestCancelationReason;
+import com.lapsa.insurance.elements.ContractStatus;
 
 import tech.lapsa.epayment.facade.EpaymentFacade.EpaymentFacadeRemote;
 import tech.lapsa.epayment.facade.InvoiceNotFound;
@@ -170,9 +170,9 @@ public class RequestCompletionFacadeBean
 
 	if (MyObjects.isA(request, InsuranceRequest.class)) {
 	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
-	    ir.setTransactionStatus(TransactionStatus.COMPLETED);
+	    ir.setContractStatus(ContractStatus.COMPLETED);
 	    ir.getPayment().setStatus(PaymentStatus.DONE);
-	    ir.setTransactionProblem(null);
+	    ir.setRequestCancelationReason(null);
 	    ir.setAgreementNumber(agreementNumber);
 	}
 
@@ -191,19 +191,19 @@ public class RequestCompletionFacadeBean
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public Request transactionUncomplete(Request request, User user, TransactionProblem transactionProblem,
+    public Request transactionUncomplete(Request request, User user, RequestCancelationReason requestCancelationReason,
 	    boolean paidable) throws IllegalState, IllegalArgument {
-	return _transactionUncomplete(request, user, transactionProblem, paidable);
+	return _transactionUncomplete(request, user, requestCancelationReason, paidable);
     }
 
     private Request _transactionUncomplete(final Request request,
 	    final User user,
-	    final TransactionProblem transactionProblem,
+	    final RequestCancelationReason requestCancelationReason,
 	    final boolean paidable) throws IllegalStateException, IllegalArgumentException {
 
 	MyObjects.requireNonNull(request, "request");
 	MyObjects.requireNonNull(user, "user");
-	MyObjects.requireNonNull(transactionProblem, "transactionProblem");
+	MyObjects.requireNonNull(requestCancelationReason, "requestCancelationReason");
 
 	if (request.getProgressStatus() == ProgressStatus.FINISHED)
 	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s", request.getProgressStatus());
@@ -218,9 +218,9 @@ public class RequestCompletionFacadeBean
 	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
 	    if (ir.getPayment().getStatus() == PaymentStatus.DONE)
 		throw MyExceptions.illegalStateFormat("Request already paid");
-	    ir.setTransactionStatus(TransactionStatus.NOT_COMPLETED);
+	    ir.setContractStatus(ContractStatus.CANCELED);
 	    ir.getPayment().setStatus(PaymentStatus.CANCELED);
-	    ir.setTransactionProblem(transactionProblem);
+	    ir.setRequestCancelationReason(requestCancelationReason);
 	    ir.setAgreementNumber(null);
 	}
 
