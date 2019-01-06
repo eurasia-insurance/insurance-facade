@@ -17,7 +17,6 @@ import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.RequesterData;
 import com.lapsa.insurance.elements.PaymentStatus;
 import com.lapsa.insurance.elements.ProgressStatus;
-import com.lapsa.insurance.elements.RequestStatus;
 import com.lapsa.international.localization.LocalizationLanguage;
 import com.lapsa.international.phone.PhoneNumber;
 
@@ -219,9 +218,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     private <T extends InsuranceRequest> T setupGeneral(final T request) {
 	if (request.getCreated() == null)
 	    request.setCreated(Instant.now());
-
-	if (request.getStatus() == null)
-	    request.setStatus(RequestStatus.OPEN);
 
 	if (request.getProgressStatus() == null)
 	    request.setProgressStatus(ProgressStatus.NEW);
