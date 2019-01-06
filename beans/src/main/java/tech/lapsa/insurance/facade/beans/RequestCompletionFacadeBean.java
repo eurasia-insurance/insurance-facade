@@ -18,8 +18,8 @@ import com.lapsa.insurance.domain.Request;
 import com.lapsa.insurance.domain.crm.User;
 import com.lapsa.insurance.elements.PaymentStatus;
 import com.lapsa.insurance.elements.ProgressStatus;
-import com.lapsa.insurance.elements.RequestCancelationReason;
-import com.lapsa.insurance.elements.ContractStatus;
+import com.lapsa.insurance.elements.InsuranceRequestCancellationReason;
+import com.lapsa.insurance.elements.InsuranceRequestStatus;
 
 import tech.lapsa.epayment.facade.EpaymentFacade.EpaymentFacadeRemote;
 import tech.lapsa.epayment.facade.InvoiceNotFound;
@@ -170,9 +170,9 @@ public class RequestCompletionFacadeBean
 
 	if (MyObjects.isA(request, InsuranceRequest.class)) {
 	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
-	    ir.setContractStatus(ContractStatus.COMPLETED);
+	    ir.setInsuranceRequestStatus(InsuranceRequestStatus.COMPLETED);
 	    ir.getPayment().setStatus(PaymentStatus.DONE);
-	    ir.setRequestCancelationReason(null);
+	    ir.setInsuranceRequestCancellationReason(null);
 	    ir.setAgreementNumber(agreementNumber);
 	}
 
@@ -191,19 +191,19 @@ public class RequestCompletionFacadeBean
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public Request transactionUncomplete(Request request, User user, RequestCancelationReason requestCancelationReason,
+    public Request transactionUncomplete(Request request, User user, InsuranceRequestCancellationReason insuranceRequestCancellationReason,
 	    boolean paidable) throws IllegalState, IllegalArgument {
-	return _transactionUncomplete(request, user, requestCancelationReason, paidable);
+	return _transactionUncomplete(request, user, insuranceRequestCancellationReason, paidable);
     }
 
     private Request _transactionUncomplete(final Request request,
 	    final User user,
-	    final RequestCancelationReason requestCancelationReason,
+	    final InsuranceRequestCancellationReason insuranceRequestCancellationReason,
 	    final boolean paidable) throws IllegalStateException, IllegalArgumentException {
 
 	MyObjects.requireNonNull(request, "request");
 	MyObjects.requireNonNull(user, "user");
-	MyObjects.requireNonNull(requestCancelationReason, "requestCancelationReason");
+	MyObjects.requireNonNull(insuranceRequestCancellationReason, "insuranceRequestCancellationReason");
 
 	if (request.getProgressStatus() == ProgressStatus.FINISHED)
 	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s", request.getProgressStatus());
@@ -218,9 +218,9 @@ public class RequestCompletionFacadeBean
 	    final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
 	    if (ir.getPayment().getStatus() == PaymentStatus.DONE)
 		throw MyExceptions.illegalStateFormat("Request already paid");
-	    ir.setContractStatus(ContractStatus.CANCELED);
+	    ir.setInsuranceRequestStatus(InsuranceRequestStatus.CANCELED);
 	    ir.getPayment().setStatus(PaymentStatus.CANCELED);
-	    ir.setRequestCancelationReason(requestCancelationReason);
+	    ir.setInsuranceRequestCancellationReason(insuranceRequestCancellationReason);
 	    ir.setAgreementNumber(null);
 	}
 
