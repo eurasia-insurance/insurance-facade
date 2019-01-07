@@ -15,6 +15,9 @@ import com.lapsa.insurance.domain.InsuranceProduct;
 import com.lapsa.insurance.domain.InsuranceRequest;
 import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.RequesterData;
+import com.lapsa.insurance.domain.crm.User;
+import com.lapsa.insurance.elements.InsuranceRequestCancellationReason;
+import com.lapsa.insurance.elements.InsuranceRequestStatus;
 import com.lapsa.insurance.elements.PaymentStatus;
 import com.lapsa.insurance.elements.ProgressStatus;
 import com.lapsa.international.localization.LocalizationLanguage;
@@ -23,6 +26,7 @@ import com.lapsa.international.phone.PhoneNumber;
 import tech.lapsa.epayment.domain.Invoice;
 import tech.lapsa.epayment.domain.Invoice.InvoiceBuilder;
 import tech.lapsa.epayment.facade.EpaymentFacade.EpaymentFacadeRemote;
+import tech.lapsa.epayment.facade.InvoiceNotFound;
 import tech.lapsa.insurance.dao.InsuranceRequestDAO.InsuranceRequestDAORemote;
 import tech.lapsa.insurance.facade.InsuranceRequestFacade;
 import tech.lapsa.insurance.facade.InsuranceRequestFacade.InsuranceRequestFacadeLocal;
@@ -34,6 +38,7 @@ import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationE
 import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationRecipientType;
 import tech.lapsa.insurance.facade.NotificationFacade.NotificationFacadeLocal;
 import tech.lapsa.java.commons.exceptions.IllegalArgument;
+import tech.lapsa.java.commons.exceptions.IllegalState;
 import tech.lapsa.java.commons.function.MyExceptions;
 import tech.lapsa.java.commons.function.MyNumbers;
 import tech.lapsa.java.commons.function.MyObjects;
@@ -48,7 +53,144 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     // READERS
 
+    @Override
+    public <T extends InsuranceRequest> T getById(Integer id) throws IllegalState, IllegalArgument {
+	try {
+	    return _getById(id);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
+
     // MODIFIERS
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T premiumPaid(T request,
+	    String paymentMethodName,
+	    Instant paymentInstant,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    String paymentCard,
+	    String paymentCardBank,
+	    String paymentReference,
+	    String payerName) throws IllegalArgument {
+	try {
+	    return _premiumPaid(request,
+		    paymentMethodName,
+		    paymentInstant,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentCard,
+		    paymentCardBank,
+		    paymentReference,
+		    payerName);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T policyIssued(T request, User user, String agreementNumber)
+	    throws IllegalState, IllegalArgument {
+	try {
+	    return _policyIssued(request, user, agreementNumber);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T policyIssuedAndPremiumPaid(T request,
+	    User user,
+	    String agreementNumber,
+	    String paymentMethodName,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    Instant paymentInstant,
+	    String paymentReference,
+	    String payerName) throws IllegalState, IllegalArgument {
+	try {
+	    return _policyIssuedAndPremiumPaid(request,
+		    user,
+		    agreementNumber,
+		    paymentMethodName,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentInstant,
+		    paymentReference,
+		    payerName);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T requestCanceled(T request, User user,
+	    InsuranceRequestCancellationReason insuranceRequestCancellationReason)
+	    throws IllegalState, IllegalArgument {
+	try {
+	    return _requestCanceled(request, user, insuranceRequestCancellationReason);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
+
+    private <T extends InsuranceRequest> T _requestCanceled(T request,
+	    User user,
+	    InsuranceRequestCancellationReason insuranceRequestCancellationReason)
+	    throws IllegalStateException, IllegalArgumentException {
+
+	MyObjects.requireNonNull(request, "request");
+	MyObjects.requireNonNull(user, "user");
+	MyObjects.requireNonNull(insuranceRequestCancellationReason, "insuranceRequestCancellationReason");
+
+	if (request.getProgressStatus() == ProgressStatus.FINISHED)
+	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s", request.getProgressStatus());
+
+	final Instant now = Instant.now();
+
+	request.setCompleted(now);
+	request.setCompletedBy(user);
+	request.setProgressStatus(ProgressStatus.FINISHED);
+
+	if (request.getPayment().getStatus() == PaymentStatus.DONE)
+	    throw MyExceptions.illegalStateFormat("Request already paid");
+	request.setInsuranceRequestStatus(InsuranceRequestStatus.REQUEST_CANCELED);
+	request.getPayment().setStatus(PaymentStatus.CANCELED);
+	request.setInsuranceRequestCancellationReason(insuranceRequestCancellationReason);
+	request.setAgreementNumber(null);
+
+	final T saved;
+	try {
+	    saved = dao.save(request);
+	} catch (IllegalArgument e) {
+	    // it should not happen
+	    throw new EJBException(e);
+	}
+
+	final String invoiceNumber = saved.getPayment().getInvoiceNumber();
+	if (MyStrings.nonEmpty(invoiceNumber))
+	    try {
+		epayments.expireInvoice(invoiceNumber);
+	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		// it should not happen
+		throw new EJBException(e);
+	    }
+
+	return saved;
+    }
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
@@ -93,33 +235,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		    invoiceProductName,
 		    invoiceAmount,
 		    invoiceQuantity);
-	} catch (final IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	}
-    }
-
-    @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public void completePayment(final Integer id,
-	    final String methodName,
-	    final Instant paymentInstant,
-	    final Double paymentAmount,
-	    final Currency paymentCurrency,
-	    final String paymentCard,
-	    final String paymentCardBank,
-	    final String paymentReference,
-	    final String payerName)
-	    throws IllegalArgument {
-	try {
-	    _completePayment(id,
-		    methodName,
-		    paymentInstant,
-		    paymentAmount,
-		    paymentCurrency,
-		    paymentCard,
-		    paymentCardBank,
-		    paymentReference,
-		    payerName);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
@@ -230,8 +345,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return request;
     }
 
-    private void _completePayment(final Integer id,
-	    final String methodName,
+    private <T extends InsuranceRequest> T _premiumPaid(final T request,
+	    final String paymentMethodName,
 	    final Instant paymentInstant,
 	    final Double paymentAmount,
 	    final Currency paymentCurrency,
@@ -241,58 +356,50 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final String payerName)
 	    throws IllegalArgumentException {
 
-	MyNumbers.requirePositive(id, "id");
-	MyStrings.requireNonEmpty(methodName, "methodName");
+	MyObjects.requireNonNull(request, "request");
+	MyStrings.requireNonEmpty(paymentMethodName, "paymentMethodName");
 	MyObjects.requireNonNull(paymentInstant, "paymentInstant");
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
 	MyObjects.requireNonNull(paymentCurrency, "paymentCurrency");
 
-	final InsuranceRequest ir1;
 	try {
-	    ir1 = dao.getById(id);
-	} catch (final NotFound e) {
-	    throw MyExceptions.illegalArgumentFormat("Request not found with id %1$s", id);
-	} catch (final IllegalArgument e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
-
-	try {
-	    ir1.getPayment().setStatus(PaymentStatus.DONE);
-	    ir1.getPayment().setMethodName(methodName);
-	    ir1.getPayment().setAmount(paymentAmount);
-	    ir1.getPayment().setCurrency(paymentCurrency);
-	    ir1.getPayment().setCard(paymentCard);
-	    ir1.getPayment().setCardBank(paymentCardBank);
-	    ir1.getPayment().setReference(paymentReference);
-	    ir1.getPayment().setInstant(paymentInstant);
-	    ir1.getPayment().setPayerName(payerName);
+	    request.getPayment().setStatus(PaymentStatus.DONE);
+	    request.getPayment().setMethodName(paymentMethodName);
+	    request.getPayment().setAmount(paymentAmount);
+	    request.getPayment().setCurrency(paymentCurrency);
+	    request.getPayment().setCard(paymentCard);
+	    request.getPayment().setCardBank(paymentCardBank);
+	    request.getPayment().setReference(paymentReference);
+	    request.getPayment().setInstant(paymentInstant);
+	    request.getPayment().setPayerName(payerName);
 	} catch (final NullPointerException e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	final InsuranceRequest ir2;
+	final T saved;
 	try {
-	    ir2 = dao.save(ir1);
+	    saved = dao.save(request);
 	} catch (final IllegalArgument e) {
 	    // it should not happens
 	    throw new EJBException(e.getMessage());
 	}
 
-	ir2.unlazy();
+	saved.unlazy();
 
 	try {
 	    notifications.send(Notification.builder() //
 		    .withEvent(NotificationEventType.REQUEST_PAID) //
 		    .withChannel(NotificationChannel.EMAIL) //
-		    .forEntity(ir2) //
+		    .forEntity(saved) //
 		    .withRecipient(NotificationRecipientType.COMPANY) //
 		    .build());
 	} catch (final IllegalArgument e) {
 	    // it should not happen
 	    throw new EJBException(e.getMessage());
 	}
+
+	return saved;
     }
 
     @EJB
@@ -320,7 +427,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		.withExternalId(request.getId()) //
 		.withConsumerEmail(MyStrings.requireNonEmpty(invoicePayeeEmail, "invoicePayeeEmail")) //
 		.withConsumerPhone(MyObjects.requireNonNull(invoicePayeePhone, "invoicePayeePhone")) //
-		.withConsumerTaxpayerNumber(MyObjects.requireNonNull(invoicePayeeTaxpayerNumber, "invoicePayeeTaxpayerNumber")) //
+		.withConsumerTaxpayerNumber(
+			MyObjects.requireNonNull(invoicePayeeTaxpayerNumber, "invoicePayeeTaxpayerNumber")) //
 		.withItem(MyStrings.requireNonEmpty(invoiceProductName, "invoiceProductName"),
 			MyNumbers.requirePositive(invoiceQuantity, "invoiceQuantity"),
 			MyNumbers.requirePositive(invoiceAmount, "invoiceAmount"));
@@ -429,8 +537,91 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return request;
     }
 
+    private <T extends InsuranceRequest> T _policyIssued(T request, User user, String agreementNumber)
+	    throws IllegalArgumentException, IllegalStateException {
+	MyObjects.requireNonNull(request, "request");
+	MyObjects.requireNonNull(user, "user");
+	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
+
+	if (request.getProgressStatus() == ProgressStatus.FINISHED)
+	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s", request.getProgressStatus());
+
+	final Instant now = Instant.now();
+
+	request.setCompleted(now);
+	request.setCompletedBy(user);
+	request.setProgressStatus(ProgressStatus.FINISHED);
+
+	final InsuranceRequest ir = MyObjects.requireA(request, InsuranceRequest.class);
+	ir.setInsuranceRequestStatus(InsuranceRequestStatus.POLICY_ISSUED);
+	ir.getPayment().setStatus(PaymentStatus.DONE);
+	ir.setInsuranceRequestCancellationReason(null);
+	ir.setAgreementNumber(agreementNumber);
+
+	final T response;
+	try {
+	    response = dao.save(request);
+	} catch (IllegalArgument e) {
+	    // it should not happen
+	    throw new EJBException(e);
+	}
+
+	return response;
+    }
+
+    private <T extends InsuranceRequest> T _policyIssuedAndPremiumPaid(T request,
+	    User user,
+	    String agreementNumber,
+	    String paymentMethodName,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    Instant paymentInstant,
+	    String paymentReference,
+	    String payerName) throws IllegalArgumentException, IllegalStateException {
+	T issued = _policyIssued(request, user, agreementNumber);
+	T paid = _premiumPaid(issued,
+		paymentMethodName,
+		paymentInstant,
+		paymentAmount,
+		paymentCurrency,
+		null,
+		null,
+		paymentReference,
+		payerName);
+
+	final String invoiceNumber = paid.getPayment().getInvoiceNumber();
+	if (MyStrings.nonEmpty(invoiceNumber))
+	    try {
+		epayments.completeWithUnknownPayment(invoiceNumber,
+			paymentAmount,
+			paymentCurrency,
+			paymentInstant,
+			paymentReference,
+			payerName);
+	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		// it should not happen
+		throw new EJBException(e);
+	    }
+	return paid;
+    }
+
     private final MyLogger logger = MyLogger.newBuilder() //
 	    .withNameOf(InsuranceRequestFacade.class) //
 	    .build();
 
+    @SuppressWarnings("unchecked")
+    private <T extends InsuranceRequest> T _getById(Integer id) throws IllegalStateException, IllegalArgumentException {
+	MyNumbers.requirePositive(id, "id");
+	final T request;
+	try {
+	    InsuranceRequest ir = dao.getById(id);
+	    request = (T) ir;
+	    return request;
+	} catch (final NotFound e) {
+	    throw MyExceptions.illegalStateFormat("Request not found with id %1$s", id);
+	} catch (final IllegalArgument e) {
+	    // it should not happens
+	    throw new EJBException(e.getMessage());
+	}
+    }
 }
