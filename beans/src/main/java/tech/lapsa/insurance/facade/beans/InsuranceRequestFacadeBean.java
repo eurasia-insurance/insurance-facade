@@ -301,16 +301,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
 		    InsuranceRequestStatus.PENDING, InsuranceRequestStatus.REQUEST_CANCELED);
 
-	if (insuranceRequest.getProgressStatus() == ProgressStatus.FINISHED)
-	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s",
-		    insuranceRequest.getProgressStatus());
-
-	final Instant now = Instant.now();
-
-	insuranceRequest.setCompleted(now);
-	insuranceRequest.setCompletedBy(user);
-	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
-
 	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.REQUEST_CANCELED);
 	insuranceRequest.getPayment().setStatus(PaymentStatus.CANCELED);
 	insuranceRequest.setInsuranceRequestCancellationReason(insuranceRequestCancellationReason);
@@ -486,18 +476,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
 		    InsuranceRequestStatus.PENDING, InsuranceRequestStatus.POLICY_ISSUED);
 
-	if (insuranceRequest.getProgressStatus() == ProgressStatus.FINISHED)
-	    throw MyExceptions.illegalStateFormat("Progress status is invalid %1$s",
-		    insuranceRequest.getProgressStatus());
-
-	final Instant now = Instant.now();
-
-	insuranceRequest.setCompleted(now);
-	insuranceRequest.setCompletedBy(user);
-	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
-
 	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.POLICY_ISSUED);
-	insuranceRequest.getPayment().setStatus(PaymentStatus.DONE);
 	insuranceRequest.setInsuranceRequestCancellationReason(null);
 	insuranceRequest.setAgreementNumber(agreementNumber);
 
