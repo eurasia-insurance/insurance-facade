@@ -301,6 +301,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
 		    InsuranceRequestStatus.PENDING, InsuranceRequestStatus.REQUEST_CANCELED);
 
+	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+
 	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.REQUEST_CANCELED);
 	insuranceRequest.getPayment().setStatus(PaymentStatus.CANCELED);
 	insuranceRequest.setInsuranceRequestCancellationReason(insuranceRequestCancellationReason);
@@ -348,6 +350,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		    InsuranceRequestStatus.POLICY_ISSUED, InsuranceRequestStatus.PREMIUM_PAID);
 
 	try {
+	    insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+
 	    insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PREMIUM_PAID);
 
 	    insuranceRequest.getPayment().setStatus(PaymentStatus.DONE);
@@ -408,7 +412,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(insuranceRequest.getId(), "insuranceRequest.id");
 
 	if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
-	throw MyExceptions.illegalStateFormat("Request should have %1$s state to create invoice",
+	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to create invoice",
 		    InsuranceRequestStatus.POLICY_ISSUED);
 
 	final InvoiceBuilder builder = Invoice.builder() //
