@@ -164,4 +164,13 @@ public class UserFacadeBean implements UserFacadeLocal, UserFacadeRemote {
 	    return sb.toString();
 	}
     }
+
+    @Override
+    public User getRootUser() {
+	try {
+	    return userDAO.getById(0);
+	} catch (IllegalArgument | NotFound e) {
+	    throw new EJBException("Fatal error System user not found");
+	}
+    }
 }
