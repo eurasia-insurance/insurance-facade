@@ -33,6 +33,7 @@ import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationC
 import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationEventType;
 import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationRecipientType;
 import tech.lapsa.insurance.facade.NotificationFacade.NotificationFacadeLocal;
+import tech.lapsa.insurance.facade.UserFacade.UserFacadeRemote;
 import tech.lapsa.java.commons.exceptions.IllegalArgument;
 import tech.lapsa.java.commons.exceptions.IllegalState;
 import tech.lapsa.java.commons.function.MyExceptions;
@@ -73,10 +74,10 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public <T extends InsuranceRequest> T policyIssued(T insuranceRequest, User user, String agreementNumber)
+    public <T extends InsuranceRequest> T policyIssued(T insuranceRequest, String agreementNumber)
 	    throws IllegalArgument, IllegalState {
 	try {
-	    return _policyIssued(insuranceRequest, user, agreementNumber);
+	    return _policyIssued(insuranceRequest, agreementNumber);
 	} catch (IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	} catch (IllegalStateException e) {
@@ -87,7 +88,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public <T extends InsuranceRequest> T policyIssuedAndInvoiceCreated(T insuranceRequest,
-	    User user,
 	    String agreementNumber,
 	    String invoicePayeeName,
 	    Currency invoiceCurrency,
@@ -99,7 +99,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    Double invoiceAmount,
 	    Integer invoiceQuantity) throws IllegalArgument, IllegalState {
 	try {
-	    T ir1 = _policyIssued(insuranceRequest, user, agreementNumber);
+	    T ir1 = _policyIssued(insuranceRequest, agreementNumber);
 	    T ir2 = _invoiceCreated(ir1,
 		    invoicePayeeName,
 		    invoiceCurrency,
@@ -121,7 +121,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public <T extends InsuranceRequest> T policyIssuedAndPremiumPaid(T insuranceRequest,
-	    User user,
+	    User completedBy,
 	    String agreementNumber,
 	    String paymentMethodName,
 	    Double paymentAmount,
@@ -132,7 +132,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String paymentReference,
 	    String payerName) throws IllegalState, IllegalArgument {
 	try {
-	    T ir1 = _policyIssued(insuranceRequest, user, agreementNumber);
+	    T ir1 = _policyIssued(insuranceRequest, agreementNumber);
 	    T ir2 = _premiumPaid(ir1,
 		    paymentMethodName,
 		    paymentInstant,
@@ -141,7 +141,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		    paymentCard,
 		    paymentCardBank,
 		    paymentReference,
-		    payerName);
+		    payerName,
+		    completedBy);
 	    return ir2;
 	} catch (IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
@@ -188,7 +189,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String paymentCard,
 	    String paymentCardBank,
 	    String paymentReference,
-	    String payerName) throws IllegalArgument {
+	    String payerName,
+	    User completedBy) throws IllegalArgument {
 	try {
 	    return _premiumPaid(insuranceRequest,
 		    paymentMethodName,
@@ -198,7 +200,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		    paymentCard,
 		    paymentCardBank,
 		    paymentReference,
-		    payerName);
+		    payerName,
+		    completedBy);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
@@ -206,11 +209,11 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public <T extends InsuranceRequest> T requestCanceled(T insuranceRequest, User user,
+    public <T extends InsuranceRequest> T requestCanceled(T insuranceRequest, User completedBy,
 	    InsuranceRequestCancellationReason insuranceRequestCancellationReason)
 	    throws IllegalState, IllegalArgument {
 	try {
-	    return _requestCanceled(insuranceRequest, user, insuranceRequestCancellationReason);
+	    return _requestCanceled(insuranceRequest, completedBy, insuranceRequestCancellationReason);
 	} catch (IllegalStateException e) {
 	    throw new IllegalState(e);
 	} catch (IllegalArgumentException e) {
@@ -289,12 +292,12 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     }
 
     private <T extends InsuranceRequest> T _requestCanceled(T insuranceRequest,
-	    User user,
+	    User completedBy,
 	    InsuranceRequestCancellationReason insuranceRequestCancellationReason)
 	    throws IllegalStateException, IllegalArgumentException {
 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
-	MyObjects.requireNonNull(user, "user");
+	MyObjects.requireNonNull(completedBy, "completedBy");
 	MyObjects.requireNonNull(insuranceRequestCancellationReason, "insuranceRequestCancellationReason");
 
 	if (!InsuranceRequestStatus.PENDING.equals(insuranceRequest.getInsuranceRequestStatus()))
@@ -302,6 +305,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		    InsuranceRequestStatus.PENDING, InsuranceRequestStatus.REQUEST_CANCELED);
 
 	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	insuranceRequest.setCompleted(Instant.now());
+	insuranceRequest.setCompletedBy(completedBy);
 
 	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.REQUEST_CANCELED);
 	insuranceRequest.getPayment().setStatus(PaymentStatus.CANCELED);
@@ -328,6 +333,9 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return ir1;
     }
 
+    @EJB
+    private UserFacadeRemote users;
+
     private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
 	    final String paymentMethodName,
 	    final Instant paymentInstant,
@@ -336,7 +344,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final String paymentCard,
 	    final String paymentCardBank,
 	    final String paymentReference,
-	    final String payerName)
+	    final String payerName,
+	    final User completedBy)
 	    throws IllegalArgumentException {
 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
@@ -351,6 +360,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
 	try {
 	    insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	    insuranceRequest.setCompleted(paymentInstant);
+	    insuranceRequest.setCompletedBy(completedBy == null ? users.getRootUser() : completedBy);
 
 	    insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PREMIUM_PAID);
 
@@ -469,11 +480,10 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return ir1;
     }
 
-    private <T extends InsuranceRequest> T _policyIssued(T insuranceRequest, User user, String agreementNumber)
+    private <T extends InsuranceRequest> T _policyIssued(T insuranceRequest, String agreementNumber)
 	    throws IllegalArgumentException, IllegalStateException {
 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
-	MyObjects.requireNonNull(user, "user");
 	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
 
 	if (!InsuranceRequestStatus.PENDING.equals(insuranceRequest.getInsuranceRequestStatus()))
