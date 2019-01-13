@@ -152,6 +152,40 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     }
 
     @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    /**
+     * Alternative completion of request
+     * 
+     * @deprecated to be removed when query below will return empty result set
+     * 
+     * <pre>
+     * select r.ID, 
+     *        r.PROGRESS_STATUS, 
+     *       ir.PAYMENT_STATUS, 
+     *       ir.AGREEMENT_NUMBER 
+     * FROM REQUEST r, 
+     *      INSURANCE_REQUEST ir
+     * WHERE ir.ID = r.ID 
+     *   AND ir.INSURANCE_REQUEST_STATUS = 'PREMIUM_PAID' 
+     *   AND r.PROGRESS_STATUS <> 'FINISHED';
+     * </pre>
+     */
+    @Deprecated
+    public <T extends InsuranceRequest> T policyIssuedAlt(T insuranceRequest,
+	    String agreementNumber,
+	    User completedBy) throws IllegalState, IllegalArgument {
+	try {
+	    T ir1 = _policyIssuedAlt(insuranceRequest, agreementNumber, completedBy);
+	    return ir1;
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
     public <T extends InsuranceRequest> T invoiceCreated(T insuranceRequest,
 	    String invoicePayeeName,
 	    Currency invoiceCurrency,
@@ -335,6 +369,41 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @EJB
     private UserFacadeRemote users;
+
+    private <T extends InsuranceRequest> T _policyIssuedAlt(T insuranceRequest,
+	    String agreementNumber,
+	    User completedBy)
+	    throws IllegalArgumentException, IllegalStateException {
+
+	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
+	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
+
+	// only PAID
+	if (!InsuranceRequestStatus.PREMIUM_PAID.equals(insuranceRequest.getInsuranceRequestStatus()))
+	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be completed",
+		    InsuranceRequestStatus.PREMIUM_PAID);
+
+	// and only unfinished
+
+	if (ProgressStatus.FINISHED.equals(insuranceRequest.getProgressStatus()))
+	    throw MyExceptions.illegalStateFormat("Request should not have %1$s state to be completed",
+		    ProgressStatus.FINISHED);
+
+	insuranceRequest.setAgreementNumber(agreementNumber);
+	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	insuranceRequest.setCompleted(Instant.now());
+	insuranceRequest.setCompletedBy(completedBy == null ? users.getRootUser() : completedBy);
+
+	final T ir1;
+	try {
+	    ir1 = dao.save(insuranceRequest);
+	} catch (IllegalArgument e) {
+	    // it should not happen
+	    throw new EJBException(e);
+	}
+
+	return ir1;
+    }
 
     private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
 	    final String paymentMethodName,
