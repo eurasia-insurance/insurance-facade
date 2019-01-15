@@ -158,7 +158,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
      * 
      * @deprecated to be removed when query below will return empty result set
      * 
-     * <pre>
+     *             <pre>
      * select r.ID, 
      *        r.PROGRESS_STATUS, 
      *       ir.PAYMENT_STATUS, 
@@ -168,7 +168,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
      * WHERE ir.ID = r.ID 
      *   AND ir.INSURANCE_REQUEST_STATUS = 'PREMIUM_PAID' 
      *   AND r.PROGRESS_STATUS <> 'FINISHED';
-     * </pre>
+     *             </pre>
      */
     @Deprecated
     public <T extends InsuranceRequest> T policyIssuedAlt(T insuranceRequest,
@@ -224,7 +224,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String paymentCardBank,
 	    String paymentReference,
 	    String payerName,
-	    User completedBy) throws IllegalArgument {
+	    User completedBy) throws IllegalArgument, IllegalState {
 	try {
 	    return _premiumPaid(insuranceRequest,
 		    paymentMethodName,
@@ -236,6 +236,34 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		    paymentReference,
 		    payerName,
 		    completedBy);
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (final IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void premiumPaid(Integer id,
+	    String paymentMethodName,
+	    Instant paymentInstant,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    String paymentCard,
+	    String paymentCardBank,
+	    String paymentReference,
+	    String payerName) throws IllegalArgument {
+	try {
+	    _premiumPaid(id,
+		    paymentMethodName,
+		    paymentInstant,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentCard,
+		    paymentCardBank,
+		    paymentReference,
+		    payerName);
 	} catch (final IllegalArgumentException e) {
 	    throw new IllegalArgument(e);
 	}
@@ -405,6 +433,38 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return ir1;
     }
 
+    private void _premiumPaid(Integer id,
+	    String paymentMethodName,
+	    Instant paymentInstant,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    String paymentCard,
+	    String paymentCardBank,
+	    String paymentReference,
+	    String payerName) throws IllegalArgumentException, IllegalStateException {
+
+	MyObjects.requireNonNull(id, "id");
+	try {
+	    final InsuranceRequest insuranceRequest = dao.getById(id);
+	    _premiumPaid(insuranceRequest,
+		    paymentMethodName,
+		    paymentInstant,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentCard,
+		    paymentCardBank,
+		    paymentReference,
+		    payerName,
+		    null, 
+		    false); // only for requests with invalid status
+	} catch (IllegalArgument e) {
+	    // it should not happen
+	    throw new EJBException(e);
+	} catch (NotFound e) {
+	    throw new IllegalArgumentException(e.getMessage());
+	}
+    }
+
     private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
 	    final String paymentMethodName,
 	    final Instant paymentInstant,
@@ -415,7 +475,41 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final String paymentReference,
 	    final String payerName,
 	    final User completedBy)
-	    throws IllegalArgumentException {
+	    throws IllegalArgumentException, IllegalStateException {
+	return _premiumPaid(insuranceRequest, paymentMethodName, paymentInstant, paymentAmount, paymentCurrency,
+		paymentCard, paymentCardBank, paymentReference, payerName, completedBy, true);
+    }
+
+    /**
+     * Alternative payment of request
+     * 
+     * @deprecated to be removed when query below will return empty result set
+     * 
+     *             <pre>
+     * select r.ID, 
+     *        r.PROGRESS_STATUS, 
+     *       ir.PAYMENT_STATUS, 
+     *       ir.AGREEMENT_NUMBER 
+     * FROM REQUEST r, 
+     *      INSURANCE_REQUEST ir
+     * WHERE ir.ID = r.ID 
+     *   AND ir.INSURANCE_REQUEST_STATUS = 'PREMIUM_PAID' 
+     *   AND r.PROGRESS_STATUS <> 'FINISHED';
+     *             </pre>
+     */
+    @Deprecated
+    private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
+	    final String paymentMethodName,
+	    final Instant paymentInstant,
+	    final Double paymentAmount,
+	    final Currency paymentCurrency,
+	    final String paymentCard,
+	    final String paymentCardBank,
+	    final String paymentReference,
+	    final String payerName,
+	    final User completedBy,
+	    boolean checkState)
+	    throws IllegalArgumentException, IllegalStateException {
 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
 	MyStrings.requireNonEmpty(paymentMethodName, "paymentMethodName");
@@ -423,9 +517,11 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
 	MyObjects.requireNonNull(paymentCurrency, "paymentCurrency");
 
-	if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
-	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
-		    InsuranceRequestStatus.POLICY_ISSUED, InsuranceRequestStatus.PREMIUM_PAID);
+	if (checkState) {
+	    if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
+		throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
+			InsuranceRequestStatus.POLICY_ISSUED, InsuranceRequestStatus.PREMIUM_PAID);
+	}
 
 	try {
 	    insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
