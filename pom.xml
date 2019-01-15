@@ -32,7 +32,7 @@
 		<esbd-dao-client.version>20190113r3</esbd-dao-client.version>
 		<epayment-facade-client.version>20190113r3</epayment-facade-client.version>
 		<insurance-dao-client.version>20190113r3</insurance-dao-client.version>
-		<insurance-facade-client.version>20190115r1</insurance-facade-client.version>
+		<insurance-facade-client.version>CURRENT-SNAPSHOT</insurance-facade-client.version>
 		<!-- oldies -->
 		<insurance-lib.version>20190113r3</insurance-lib.version>
 	</properties>
