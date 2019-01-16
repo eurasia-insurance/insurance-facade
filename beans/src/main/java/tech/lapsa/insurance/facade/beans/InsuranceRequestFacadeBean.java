@@ -99,8 +99,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    Double invoiceAmount,
 	    Integer invoiceQuantity) throws IllegalArgument, IllegalState {
 	try {
-	    T ir1 = _policyIssued(insuranceRequest, agreementNumber);
-	    T ir2 = _invoiceCreated(ir1,
+	    final T ir1 = _policyIssued(insuranceRequest, agreementNumber);
+	    final T ir2 = _invoiceCreated(ir1,
 		    invoicePayeeName,
 		    invoiceCurrency,
 		    invoiceLanguage,
@@ -402,6 +402,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
 	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
+	MyObjects.requireNonNull(completedBy, "completedBy");
 
 	// only PAID
 	if (!InsuranceRequestStatus.PREMIUM_PAID.equals(insuranceRequest.getInsuranceRequestStatus()))
@@ -417,7 +418,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	insuranceRequest.setAgreementNumber(agreementNumber);
 	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
 	insuranceRequest.setCompleted(Instant.now());
-	insuranceRequest.setCompletedBy(completedBy == null ? getRootUser() : completedBy);
+	insuranceRequest.setCompletedBy(completedBy);
 
 	final T ir1;
 	try {
@@ -430,6 +431,9 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return ir1;
     }
 
+    @EJB
+    private UserDAORemote userDao;
+
     private void _premiumPaid(Integer id,
 	    String paymentMethodName,
 	    Instant paymentInstant,
@@ -441,25 +445,36 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String payerName) throws IllegalArgumentException, IllegalStateException {
 
 	MyObjects.requireNonNull(id, "id");
+
+	final InsuranceRequest insuranceRequest;
 	try {
-	    final InsuranceRequest insuranceRequest = dao.getById(id);
-	    _premiumPaid(insuranceRequest,
-		    paymentMethodName,
-		    paymentInstant,
-		    paymentAmount,
-		    paymentCurrency,
-		    paymentCard,
-		    paymentCardBank,
-		    paymentReference,
-		    payerName,
-		    null, 
-		    false); // only for requests with invalid status
+	    insuranceRequest = dao.getById(id);
 	} catch (IllegalArgument e) {
 	    // it should not happen
-	    throw new EJBException(e);
+	    throw new EJBException(e.getMessage());
 	} catch (NotFound e) {
 	    throw new IllegalArgumentException(e.getMessage());
 	}
+
+	final User completedBy;
+	try {
+	    completedBy = userDao.getById(0);
+	} catch (IllegalArgument | NotFound e) {
+	    // it should not happen
+	    throw new EJBException(e.getMessage());
+	}
+
+	_premiumPaid(insuranceRequest,
+		paymentMethodName,
+		paymentInstant,
+		paymentAmount,
+		paymentCurrency,
+		paymentCard,
+		paymentCardBank,
+		paymentReference,
+		payerName,
+		completedBy,
+		false); // only for requests with invalid status
     }
 
     private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
@@ -475,18 +490,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throws IllegalArgumentException, IllegalStateException {
 	return _premiumPaid(insuranceRequest, paymentMethodName, paymentInstant, paymentAmount, paymentCurrency,
 		paymentCard, paymentCardBank, paymentReference, payerName, completedBy, true);
-    }
-
-    @EJB
-    private UserDAORemote userDao;
-
-    private User getRootUser() {
-	try {
-	    return userDao.getById(0);
-	} catch (IllegalArgument | NotFound e) {
-	    // it should not happen
-	    throw new EJBException("Fatal error System user not found");
-	}
     }
 
     /**
@@ -525,6 +528,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(paymentInstant, "paymentInstant");
 	MyNumbers.requirePositive(paymentAmount, "paymentAmount");
 	MyObjects.requireNonNull(paymentCurrency, "paymentCurrency");
+	MyObjects.requireNonNull(completedBy, "completedBy");
 
 	if (checkState) {
 	    if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
@@ -532,26 +536,21 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 			InsuranceRequestStatus.POLICY_ISSUED, InsuranceRequestStatus.PREMIUM_PAID);
 	}
 
-	try {
-	    insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
-	    insuranceRequest.setCompleted(paymentInstant);
-	    insuranceRequest.setCompletedBy(completedBy == null ? getRootUser() : completedBy);
+	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	insuranceRequest.setCompleted(paymentInstant);
+	insuranceRequest.setCompletedBy(completedBy);
 
-	    insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PREMIUM_PAID);
+	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PREMIUM_PAID);
 
-	    insuranceRequest.getPayment().setStatus(PaymentStatus.DONE);
-	    insuranceRequest.getPayment().setMethodName(paymentMethodName);
-	    insuranceRequest.getPayment().setAmount(paymentAmount);
-	    insuranceRequest.getPayment().setCurrency(paymentCurrency);
-	    insuranceRequest.getPayment().setCard(paymentCard);
-	    insuranceRequest.getPayment().setCardBank(paymentCardBank);
-	    insuranceRequest.getPayment().setReference(paymentReference);
-	    insuranceRequest.getPayment().setInstant(paymentInstant);
-	    insuranceRequest.getPayment().setPayerName(payerName);
-	} catch (final NullPointerException e) {
-	    // it should not happens
-	    throw new EJBException(e.getMessage());
-	}
+	insuranceRequest.getPayment().setStatus(PaymentStatus.DONE);
+	insuranceRequest.getPayment().setMethodName(paymentMethodName);
+	insuranceRequest.getPayment().setAmount(paymentAmount);
+	insuranceRequest.getPayment().setCurrency(paymentCurrency);
+	insuranceRequest.getPayment().setCard(paymentCard);
+	insuranceRequest.getPayment().setCardBank(paymentCardBank);
+	insuranceRequest.getPayment().setReference(paymentReference);
+	insuranceRequest.getPayment().setInstant(paymentInstant);
+	insuranceRequest.getPayment().setPayerName(payerName);
 
 	final T ir1;
 	try {
