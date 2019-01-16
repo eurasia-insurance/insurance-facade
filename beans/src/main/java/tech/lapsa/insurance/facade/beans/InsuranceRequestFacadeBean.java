@@ -245,7 +245,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public void premiumPaid(Integer id,
+    public void premiumPaidById(Integer id,
 	    String paymentMethodName,
 	    Instant paymentInstant,
 	    Double paymentAmount,
@@ -255,7 +255,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String paymentReference,
 	    String payerName) throws IllegalArgument {
 	try {
-	    _premiumPaid(id,
+	    _premiumPaidById(id,
 		    paymentMethodName,
 		    paymentInstant,
 		    paymentAmount,
@@ -434,7 +434,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @EJB
     private UserDAORemote userDao;
 
-    private void _premiumPaid(Integer id,
+    private void _premiumPaidById(Integer id,
 	    String paymentMethodName,
 	    Instant paymentInstant,
 	    Double paymentAmount,
