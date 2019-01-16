@@ -24,6 +24,7 @@ import tech.lapsa.epayment.domain.Invoice.InvoiceBuilder;
 import tech.lapsa.epayment.facade.EpaymentFacade.EpaymentFacadeRemote;
 import tech.lapsa.epayment.facade.InvoiceNotFound;
 import tech.lapsa.insurance.dao.InsuranceRequestDAO.InsuranceRequestDAORemote;
+import tech.lapsa.insurance.dao.UserDAO.UserDAORemote;
 import tech.lapsa.insurance.facade.InsuranceRequestFacade;
 import tech.lapsa.insurance.facade.InsuranceRequestFacade.InsuranceRequestFacadeLocal;
 import tech.lapsa.insurance.facade.InsuranceRequestFacade.InsuranceRequestFacadeRemote;
@@ -33,7 +34,6 @@ import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationC
 import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationEventType;
 import tech.lapsa.insurance.facade.NotificationFacade.Notification.NotificationRecipientType;
 import tech.lapsa.insurance.facade.NotificationFacade.NotificationFacadeLocal;
-import tech.lapsa.insurance.facade.UserFacade.UserFacadeRemote;
 import tech.lapsa.java.commons.exceptions.IllegalArgument;
 import tech.lapsa.java.commons.exceptions.IllegalState;
 import tech.lapsa.java.commons.function.MyExceptions;
@@ -395,9 +395,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	return ir1;
     }
 
-    @EJB
-    private UserFacadeRemote users;
-
     private <T extends InsuranceRequest> T _policyIssuedAlt(T insuranceRequest,
 	    String agreementNumber,
 	    User completedBy)
@@ -420,7 +417,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	insuranceRequest.setAgreementNumber(agreementNumber);
 	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
 	insuranceRequest.setCompleted(Instant.now());
-	insuranceRequest.setCompletedBy(completedBy == null ? users.getRootUser() : completedBy);
+	insuranceRequest.setCompletedBy(completedBy == null ? getRootUser() : completedBy);
 
 	final T ir1;
 	try {
@@ -480,6 +477,18 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		paymentCard, paymentCardBank, paymentReference, payerName, completedBy, true);
     }
 
+    @EJB
+    private UserDAORemote userDao;
+
+    private User getRootUser() {
+	try {
+	    return userDao.getById(0);
+	} catch (IllegalArgument | NotFound e) {
+	    // it should not happen
+	    throw new EJBException("Fatal error System user not found");
+	}
+    }
+
     /**
      * Alternative payment of request
      * 
@@ -526,7 +535,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	try {
 	    insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
 	    insuranceRequest.setCompleted(paymentInstant);
-	    insuranceRequest.setCompletedBy(completedBy == null ? users.getRootUser() : completedBy);
+	    insuranceRequest.setCompletedBy(completedBy == null ? getRootUser() : completedBy);
 
 	    insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PREMIUM_PAID);
 
