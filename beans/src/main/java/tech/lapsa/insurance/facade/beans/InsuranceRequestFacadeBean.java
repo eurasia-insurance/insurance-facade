@@ -614,12 +614,9 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	if (MyStrings.nonEmpty(invoiceNumber)) {
 	    try {
 		epayments.markInvoiceAsPaid(invoiceNumber, paymentInstant);
-	    } catch (IllegalArgument e) {
-		throw e.getRuntime();
-	    } catch (IllegalState e) {
-		throw e.getRuntime();
-	    } catch (InvoiceNotFound e) {
-		throw new IllegalArgumentException(e.getMessage());
+	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		// it should not happen
+		throw new EJBException(e);
 	    }
 	}
 	return insuranceRequest;
