@@ -1,5 +1,14 @@
 package tech.lapsa.insurance.facade.beans;
 
+import static com.lapsa.insurance.elements.InsuranceRequestStatus.PENDING;
+import static com.lapsa.insurance.elements.InsuranceRequestStatus.POLICY_ISSUED;
+import static com.lapsa.insurance.elements.InsuranceRequestStatus.PREMIUM_PAID;
+import static com.lapsa.insurance.elements.InsuranceRequestStatus.REQUEST_CANCELED;
+import static com.lapsa.insurance.elements.PaymentStatus.CANCELED;
+import static com.lapsa.insurance.elements.PaymentStatus.DONE;
+import static com.lapsa.insurance.elements.ProgressStatus.FINISHED;
+import static com.lapsa.insurance.elements.ProgressStatus.NEW;
+
 import java.time.Instant;
 import java.util.Currency;
 
@@ -13,9 +22,7 @@ import com.lapsa.insurance.domain.InsuranceRequest;
 import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.crm.User;
 import com.lapsa.insurance.elements.InsuranceRequestCancellationReason;
-import com.lapsa.insurance.elements.InsuranceRequestStatus;
 import com.lapsa.insurance.elements.PaymentStatus;
-import com.lapsa.insurance.elements.ProgressStatus;
 import com.lapsa.international.localization.LocalizationLanguage;
 import com.lapsa.international.phone.PhoneNumber;
 
@@ -132,8 +139,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String paymentReference,
 	    String payerName) throws IllegalState, IllegalArgument {
 	try {
-	    T ir1 = _policyIssued(insuranceRequest, agreementNumber);
-	    T ir2 = _premiumPaid(ir1,
+	    final T ir1 = _policyIssued(insuranceRequest, agreementNumber);
+	    final T ir2 = _premiumPaid(ir1,
 		    paymentMethodName,
 		    paymentInstant,
 		    paymentAmount,
@@ -245,7 +252,39 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public void premiumPaidById(Integer id,
+    public <T extends InsuranceRequest> T invoicePaidByUs(T insuranceRequest,
+	    String paymentMethodName,
+	    Instant paymentInstant,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    String paymentCard,
+	    String paymentCardBank,
+	    String paymentReference,
+	    String payerName,
+	    User completedBy) throws IllegalArgument, IllegalState {
+	try {
+	    final T ir1 = _markInvoicePaid(insuranceRequest, paymentInstant);
+	    final T ir2 = _premiumPaid(ir1,
+		    paymentMethodName,
+		    paymentInstant,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentCard,
+		    paymentCardBank,
+		    paymentReference,
+		    payerName,
+		    completedBy);
+	    return ir2;
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (final IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void invoicePaidByTheir(Integer id,
 	    String paymentMethodName,
 	    Instant paymentInstant,
 	    Double paymentAmount,
@@ -299,14 +338,14 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    insuranceRequest.setCreated(Instant.now());
 
 	if (insuranceRequest.getProgressStatus() == null)
-	    insuranceRequest.setProgressStatus(ProgressStatus.NEW);
+	    insuranceRequest.setProgressStatus(NEW);
 
 	if (insuranceRequest.getPayment() == null)
 	    insuranceRequest.setPayment(new PaymentData());
 	if (insuranceRequest.getPayment().getStatus() == null)
 	    insuranceRequest.getPayment().setStatus(PaymentStatus.UNDEFINED);
 
-	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PENDING);
+	insuranceRequest.setInsuranceRequestStatus(PENDING);
 
 	final T ir1;
 	try {
@@ -362,16 +401,16 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(completedBy, "completedBy");
 	MyObjects.requireNonNull(insuranceRequestCancellationReason, "insuranceRequestCancellationReason");
 
-	if (!InsuranceRequestStatus.PENDING.equals(insuranceRequest.getInsuranceRequestStatus()))
-	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
-		    InsuranceRequestStatus.PENDING, InsuranceRequestStatus.REQUEST_CANCELED);
+	if (insuranceRequest.insuranceRequestStatusIn(PREMIUM_PAID, REQUEST_CANCELED))
+	    throw MyExceptions.illegalStateFormat("Invalid status for canceling request %1$s",
+		    insuranceRequest.getInsuranceRequestStatus());
 
-	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	insuranceRequest.setProgressStatus(FINISHED);
 	insuranceRequest.setCompleted(Instant.now());
 	insuranceRequest.setCompletedBy(completedBy);
 
-	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.REQUEST_CANCELED);
-	insuranceRequest.getPayment().setStatus(PaymentStatus.CANCELED);
+	insuranceRequest.setInsuranceRequestStatus(REQUEST_CANCELED);
+	insuranceRequest.getPayment().setStatus(CANCELED);
 	insuranceRequest.setInsuranceRequestCancellationReason(insuranceRequestCancellationReason);
 	insuranceRequest.setAgreementNumber(null);
 
@@ -383,14 +422,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw new EJBException(e);
 	}
 
-	final String invoiceNumber = ir1.getPayment().getInvoiceNumber();
-	if (MyStrings.nonEmpty(invoiceNumber))
-	    try {
-		epayments.expireInvoice(invoiceNumber);
-	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
-		// it should not happen
-		throw new EJBException(e);
-	    }
+	_cancelInvoice(ir1);
 
 	return ir1;
     }
@@ -405,18 +437,17 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(completedBy, "completedBy");
 
 	// only PAID
-	if (!InsuranceRequestStatus.PREMIUM_PAID.equals(insuranceRequest.getInsuranceRequestStatus()))
+	if (!PREMIUM_PAID.equals(insuranceRequest.getInsuranceRequestStatus()))
 	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be completed",
-		    InsuranceRequestStatus.PREMIUM_PAID);
+		    PREMIUM_PAID);
 
 	// and only unfinished
-
-	if (ProgressStatus.FINISHED.equals(insuranceRequest.getProgressStatus()))
+	if (FINISHED.equals(insuranceRequest.getProgressStatus()))
 	    throw MyExceptions.illegalStateFormat("Request should not have %1$s state to be completed",
-		    ProgressStatus.FINISHED);
+		    FINISHED);
 
 	insuranceRequest.setAgreementNumber(agreementNumber);
-	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	insuranceRequest.setProgressStatus(FINISHED);
 	insuranceRequest.setCompleted(Instant.now());
 	insuranceRequest.setCompletedBy(completedBy);
 
@@ -509,7 +540,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
      *   AND r.PROGRESS_STATUS <> 'FINISHED';
      *             </pre>
      */
-    @Deprecated
     private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
 	    final String paymentMethodName,
 	    final Instant paymentInstant,
@@ -520,7 +550,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    final String paymentReference,
 	    final String payerName,
 	    final User completedBy,
-	    boolean checkState)
+	    @Deprecated boolean checkState)
 	    throws IllegalArgumentException, IllegalStateException {
 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
@@ -531,18 +561,17 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(completedBy, "completedBy");
 
 	if (checkState) {
-	    if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
-		throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
-			InsuranceRequestStatus.POLICY_ISSUED, InsuranceRequestStatus.PREMIUM_PAID);
+	    if (insuranceRequest.insuranceRequestStatusIn(PREMIUM_PAID, REQUEST_CANCELED))
+		throw MyExceptions.illegalStateFormat("Invalid request status");
 	}
 
-	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
+	insuranceRequest.setProgressStatus(FINISHED);
 	insuranceRequest.setCompleted(paymentInstant);
 	insuranceRequest.setCompletedBy(completedBy);
 
-	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.PREMIUM_PAID);
+	insuranceRequest.setInsuranceRequestStatus(PREMIUM_PAID);
 
-	insuranceRequest.getPayment().setStatus(PaymentStatus.DONE);
+	insuranceRequest.getPayment().setStatus(DONE);
 	insuranceRequest.getPayment().setMethodName(paymentMethodName);
 	insuranceRequest.getPayment().setAmount(paymentAmount);
 	insuranceRequest.getPayment().setCurrency(paymentCurrency);
@@ -580,6 +609,31 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     @EJB
     private EpaymentFacadeRemote epayments;
 
+    private <T extends InsuranceRequest> T _markInvoicePaid(T insuranceRequest, Instant paymentInstant) {
+	final String invoiceNumber = insuranceRequest.getPayment().getInvoiceNumber();
+	if (MyStrings.nonEmpty(invoiceNumber)) {
+	    try {
+		epayments.markInvoiceAsPaid(invoiceNumber, paymentInstant);
+	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		// it should not happen
+		throw new EJBException(e);
+	    }
+	}
+	return insuranceRequest;
+    }
+
+    private <T extends InsuranceRequest> T _cancelInvoice(final T insuranceRequest) {
+	final String invoiceNumber = insuranceRequest.getPayment().getInvoiceNumber();
+	if (MyStrings.nonEmpty(invoiceNumber))
+	    try {
+		epayments.expireInvoice(invoiceNumber);
+	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		// it should not happen
+		throw new EJBException(e);
+	    }
+	return insuranceRequest;
+    }
+
     private <T extends InsuranceRequest> T _invoiceCreated(final T insuranceRequest,
 	    String invoicePayeeName,
 	    Currency invoiceCurrency,
@@ -595,9 +649,9 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
 	MyObjects.requireNonNull(insuranceRequest.getId(), "insuranceRequest.id");
 
-	if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
+	if (!POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
 	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to create invoice",
-		    InsuranceRequestStatus.POLICY_ISSUED);
+		    POLICY_ISSUED);
 
 	final InvoiceBuilder builder = Invoice.builder() //
 		.withGeneratedNumber() //
@@ -659,11 +713,11 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(insuranceRequest, "insuranceRequest");
 	MyStrings.requireNonEmpty(agreementNumber, "agreementNumber");
 
-	if (!InsuranceRequestStatus.PENDING.equals(insuranceRequest.getInsuranceRequestStatus()))
-	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
-		    InsuranceRequestStatus.PENDING, InsuranceRequestStatus.POLICY_ISSUED);
+	if (!PENDING.equals(insuranceRequest.getInsuranceRequestStatus()))
+	    throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s", PENDING,
+		    POLICY_ISSUED);
 
-	insuranceRequest.setInsuranceRequestStatus(InsuranceRequestStatus.POLICY_ISSUED);
+	insuranceRequest.setInsuranceRequestStatus(POLICY_ISSUED);
 	insuranceRequest.setInsuranceRequestCancellationReason(null);
 	insuranceRequest.setAgreementNumber(agreementNumber);
 
