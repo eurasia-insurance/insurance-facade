@@ -1,5 +1,7 @@
 package tech.lapsa.insurance.facade.beans;
 
+import static com.lapsa.insurance.elements.InsuranceRequestStatus.*;
+
 import java.time.Instant;
 import java.util.Currency;
 
@@ -132,8 +134,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    String paymentReference,
 	    String payerName) throws IllegalState, IllegalArgument {
 	try {
-	    T ir1 = _policyIssued(insuranceRequest, agreementNumber);
-	    T ir2 = _premiumPaid(ir1,
+	    final T ir1 = _policyIssued(insuranceRequest, agreementNumber);
+	    final T ir2 = _premiumPaid(ir1,
 		    paymentMethodName,
 		    paymentInstant,
 		    paymentAmount,
@@ -245,7 +247,39 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public void premiumPaidById(Integer id,
+    public <T extends InsuranceRequest> T invoicePaidByUs(T insuranceRequest,
+	    String paymentMethodName,
+	    Instant paymentInstant,
+	    Double paymentAmount,
+	    Currency paymentCurrency,
+	    String paymentCard,
+	    String paymentCardBank,
+	    String paymentReference,
+	    String payerName,
+	    User completedBy) throws IllegalArgument, IllegalState {
+	try {
+	    final T ir1 = _markInvoicePaid(insuranceRequest, paymentInstant);
+	    final T ir2 = _premiumPaid(ir1,
+		    paymentMethodName,
+		    paymentInstant,
+		    paymentAmount,
+		    paymentCurrency,
+		    paymentCard,
+		    paymentCardBank,
+		    paymentReference,
+		    payerName,
+		    completedBy);
+	    return ir2;
+	} catch (final IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	} catch (final IllegalStateException e) {
+	    throw new IllegalState(e);
+	}
+    }
+
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public void invoicePaidByTheir(Integer id,
 	    String paymentMethodName,
 	    Instant paymentInstant,
 	    Double paymentAmount,
@@ -531,9 +565,8 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	MyObjects.requireNonNull(completedBy, "completedBy");
 
 	if (checkState) {
-	    if (!InsuranceRequestStatus.POLICY_ISSUED.equals(insuranceRequest.getInsuranceRequestStatus()))
-		throw MyExceptions.illegalStateFormat("Request should have %1$s state to be changed to %2$s",
-			InsuranceRequestStatus.POLICY_ISSUED, InsuranceRequestStatus.PREMIUM_PAID);
+	    if (insuranceRequest.insuranceRequestStatusIn(PREMIUM_PAID, REQUEST_CANCELED))
+		throw MyExceptions.illegalStateFormat("Invalid request status");
 	}
 
 	insuranceRequest.setProgressStatus(ProgressStatus.FINISHED);
@@ -579,6 +612,22 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
     @EJB
     private EpaymentFacadeRemote epayments;
+
+    private <T extends InsuranceRequest> T _markInvoicePaid(T insuranceRequest, Instant paymentInstant) {
+	final String invoiceNumber = insuranceRequest.getPayment().getInvoiceNumber();
+	if (MyStrings.nonEmpty(invoiceNumber)) {
+	    try {
+		epayments.markInvoiceAsPaid(invoiceNumber, paymentInstant);
+	    } catch (IllegalArgument e) {
+		throw e.getRuntime();
+	    } catch (IllegalState e) {
+		throw e.getRuntime();
+	    } catch (InvoiceNotFound e) {
+		throw new IllegalArgumentException(e.getMessage());
+	    }
+	}
+	return insuranceRequest;
+    }
 
     private <T extends InsuranceRequest> T _invoiceCreated(final T insuranceRequest,
 	    String invoicePayeeName,
