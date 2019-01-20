@@ -523,15 +523,15 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
      * @deprecated to be removed when query below will return empty result set
      * 
      *             <pre>
-     * select r.ID, 
-     *        r.PROGRESS_STATUS, 
-     *       ir.PAYMENT_STATUS, 
-     *       ir.AGREEMENT_NUMBER 
-     * FROM REQUEST r, 
-     *      INSURANCE_REQUEST ir
-     * WHERE ir.ID = r.ID 
-     *   AND ir.INSURANCE_REQUEST_STATUS = 'PREMIUM_PAID' 
-     *   AND r.PROGRESS_STATUS <> 'FINISHED';
+      SELECT R.ID, 
+             R.PROGRESS_STATUS,
+            IR.AGREEMENT_NUMBER,
+            IR.INSURANCE_REQUEST_STATUS 
+      FROM REQUEST R, 
+           INSURANCE_REQUEST IR
+      WHERE IR.ID = R.ID 
+        AND IR.INSURANCE_REQUEST_STATUS = 'PREMIUM_PAID' 
+        AND R.PROGRESS_STATUS <> 'FINISHED';
      *             </pre>
      */
     private <T extends InsuranceRequest> T _premiumPaid(final T insuranceRequest,
