@@ -4,8 +4,6 @@ import static com.lapsa.insurance.elements.InsuranceRequestStatus.PENDING;
 import static com.lapsa.insurance.elements.InsuranceRequestStatus.POLICY_ISSUED;
 import static com.lapsa.insurance.elements.InsuranceRequestStatus.PREMIUM_PAID;
 import static com.lapsa.insurance.elements.InsuranceRequestStatus.REQUEST_CANCELED;
-import static com.lapsa.insurance.elements.PaymentStatus.CANCELED;
-import static com.lapsa.insurance.elements.PaymentStatus.DONE;
 import static com.lapsa.insurance.elements.ProgressStatus.FINISHED;
 import static com.lapsa.insurance.elements.ProgressStatus.NEW;
 
@@ -22,7 +20,6 @@ import com.lapsa.insurance.domain.InsuranceRequest;
 import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.crm.User;
 import com.lapsa.insurance.elements.InsuranceRequestCancellationReason;
-import com.lapsa.insurance.elements.PaymentStatus;
 import com.lapsa.international.localization.LocalizationLanguage;
 import com.lapsa.international.phone.PhoneNumber;
 
@@ -342,8 +339,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
 	if (insuranceRequest.getPayment() == null)
 	    insuranceRequest.setPayment(new PaymentData());
-	if (insuranceRequest.getPayment().getStatus() == null)
-	    insuranceRequest.getPayment().setStatus(PaymentStatus.UNDEFINED);
 
 	insuranceRequest.setInsuranceRequestStatus(PENDING);
 
@@ -410,7 +405,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	insuranceRequest.setCompletedBy(completedBy);
 
 	insuranceRequest.setInsuranceRequestStatus(REQUEST_CANCELED);
-	insuranceRequest.getPayment().setStatus(CANCELED);
 	insuranceRequest.setInsuranceRequestCancellationReason(insuranceRequestCancellationReason);
 	insuranceRequest.setAgreementNumber(null);
 
@@ -571,7 +565,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
 	insuranceRequest.setInsuranceRequestStatus(PREMIUM_PAID);
 
-	insuranceRequest.getPayment().setStatus(DONE);
 	insuranceRequest.getPayment().setMethodName(paymentMethodName);
 	insuranceRequest.getPayment().setAmount(paymentAmount);
 	insuranceRequest.getPayment().setCurrency(paymentCurrency);
@@ -681,7 +674,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    p = new PaymentData();
 	    insuranceRequest.setPayment(p);
 	}
-	p.setStatus(PaymentStatus.PENDING);
 	p.setInvoiceProductName(invoiceProductName);
 
 	p.setInvoiceQuantity(invoiceQuantity);
