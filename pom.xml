@@ -21,20 +21,20 @@
 
 	<properties>
 		<!-- BOMS -->
-		<javax-javaee-bom.version>CURRENT-SNAPSHOT</javax-javaee-bom.version>
-		<java-commons.version>CURRENT-SNAPSHOT</java-commons.version>
-		<payara-bom.version>CURRENT-SNAPSHOT</payara-bom.version>
+		<javax-javaee-bom.version>20190126r1</javax-javaee-bom.version>
+		<java-commons.version>20190126r1</java-commons.version>
+		<payara-bom.version>20190126r1</payara-bom.version>
 		<!-- tech -->
-		<lapsa-jms-rpc.version>CURRENT-SNAPSHOT</lapsa-jms-rpc.version>
-		<insurance-shared.version>CURRENT-SNAPSHOT</insurance-shared.version>
-		<epayment-shared.version>CURRENT-SNAPSHOT</epayment-shared.version>
+		<lapsa-jms-rpc.version>20190126r1</lapsa-jms-rpc.version>
+		<insurance-shared.version>20190126r1</insurance-shared.version>
+		<epayment-shared.version>20190126r1</epayment-shared.version>
 		<!-- EJB clients -->
-		<esbd-dao-client.version>CURRENT-SNAPSHOT</esbd-dao-client.version>
-		<epayment-facade-client.version>CURRENT-SNAPSHOT</epayment-facade-client.version>
-		<insurance-dao-client.version>CURRENT-SNAPSHOT</insurance-dao-client.version>
-		<insurance-facade-client.version>CURRENT-SNAPSHOT</insurance-facade-client.version>
+		<esbd-dao-client.version>20190126r1</esbd-dao-client.version>
+		<epayment-facade-client.version>20190126r1</epayment-facade-client.version>
+		<insurance-dao-client.version>20190126r1</insurance-dao-client.version>
+		<insurance-facade-client.version>20190126r1</insurance-facade-client.version>
 		<!-- oldies -->
-		<insurance-lib.version>CURRENT-SNAPSHOT</insurance-lib.version>
+		<insurance-lib.version>20190126r1</insurance-lib.version>
 	</properties>
 
 	<dependencyManagement>
