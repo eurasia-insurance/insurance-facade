@@ -94,6 +94,7 @@ public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 	out.getActual().setCurrency(KZT);
 
 	out.setPaymentDate(in.getPaymentDate());
+	out.setPolicyDate(in.getPolicyDate());
 
 	// in.getId();
 	out.setNumber(in.getNumber());
