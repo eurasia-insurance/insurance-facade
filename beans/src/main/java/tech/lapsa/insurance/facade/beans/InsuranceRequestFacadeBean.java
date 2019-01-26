@@ -339,6 +339,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw new IllegalArgument(e);
 	}
     }
+
     // PRIVATE
 
     @EJB
