@@ -17,7 +17,6 @@ import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 
 import com.lapsa.insurance.domain.InsuranceRequest;
-import com.lapsa.insurance.domain.PaymentData;
 import com.lapsa.insurance.domain.crm.User;
 import com.lapsa.insurance.elements.InsuranceRequestCancellationReason;
 import com.lapsa.international.localization.LocalizationLanguage;
@@ -337,9 +336,6 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	if (insuranceRequest.getProgressStatus() == null)
 	    insuranceRequest.setProgressStatus(NEW);
 
-	if (insuranceRequest.getPayment() == null)
-	    insuranceRequest.setPayment(new PaymentData());
-
 	insuranceRequest.setInsuranceRequestStatus(PENDING);
 
 	final T ir1;
@@ -565,14 +561,14 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 
 	insuranceRequest.setInsuranceRequestStatus(PREMIUM_PAID);
 
-	insuranceRequest.getPayment().setMethodName(paymentMethodName);
-	insuranceRequest.getPayment().setAmount(paymentAmount);
-	insuranceRequest.getPayment().setCurrency(paymentCurrency);
-	insuranceRequest.getPayment().setCard(paymentCard);
-	insuranceRequest.getPayment().setCardBank(paymentCardBank);
-	insuranceRequest.getPayment().setReference(paymentReference);
-	insuranceRequest.getPayment().setInstant(paymentInstant);
-	insuranceRequest.getPayment().setPayerName(payerName);
+	insuranceRequest.setMethodName(paymentMethodName);
+	insuranceRequest.setAmount(paymentAmount);
+	insuranceRequest.setCurrency(paymentCurrency);
+	insuranceRequest.setCard(paymentCard);
+	insuranceRequest.setCardBank(paymentCardBank);
+	insuranceRequest.setReference(paymentReference);
+	insuranceRequest.setInstant(paymentInstant);
+	insuranceRequest.setPayerName(payerName);
 
 	final T ir1;
 	try {
@@ -603,7 +599,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     private EpaymentFacadeRemote epayments;
 
     private <T extends InsuranceRequest> T _markInvoicePaid(T insuranceRequest, Instant paymentInstant) {
-	final String invoiceNumber = insuranceRequest.getPayment().getInvoiceNumber();
+	final String invoiceNumber = insuranceRequest.getInvoiceNumber();
 	if (MyStrings.nonEmpty(invoiceNumber)) {
 	    try {
 		epayments.markInvoiceAsPaid(invoiceNumber, paymentInstant);
@@ -616,7 +612,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
     }
 
     private <T extends InsuranceRequest> T _cancelInvoice(final T insuranceRequest) {
-	final String invoiceNumber = insuranceRequest.getPayment().getInvoiceNumber();
+	final String invoiceNumber = insuranceRequest.getInvoiceNumber();
 	if (MyStrings.nonEmpty(invoiceNumber))
 	    try {
 		epayments.expireInvoice(invoiceNumber);
@@ -669,24 +665,19 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	    throw new EJBException(e.getMessage());
 	}
 
-	PaymentData p = insuranceRequest.getPayment();
-	if (p == null) {
-	    p = new PaymentData();
-	    insuranceRequest.setPayment(p);
-	}
-	p.setInvoiceProductName(invoiceProductName);
+	insuranceRequest.setInvoiceProductName(invoiceProductName);
 
-	p.setInvoiceQuantity(invoiceQuantity);
-	p.setInvoiceAmount(invoiceAmount);
-	p.setInvoiceCurrency(invoiceCurrency);
+	insuranceRequest.setInvoiceQuantity(invoiceQuantity);
+	insuranceRequest.setInvoiceAmount(invoiceAmount);
+	insuranceRequest.setInvoiceCurrency(invoiceCurrency);
 
-	p.setInvoicePayeeName(invoicePayeeName);
-	p.setInvoicePayeeEmail(invoicePayeeEmail);
-	p.setInvoicePayeePhone(invoicePayeePhone);
-	p.setInvoicePayeeTaxpayerNumber(invoicePayeeTaxpayerNumber);
-	p.setInvoiceLanguage(invoiceLanguage);
+	insuranceRequest.setInvoicePayeeName(invoicePayeeName);
+	insuranceRequest.setInvoicePayeeEmail(invoicePayeeEmail);
+	insuranceRequest.setInvoicePayeePhone(invoicePayeePhone);
+	insuranceRequest.setInvoicePayeeTaxpayerNumber(invoicePayeeTaxpayerNumber);
+	insuranceRequest.setInvoiceLanguage(invoiceLanguage);
 
-	p.setInvoiceNumber(invoice.getNumber());
+	insuranceRequest.setInvoiceNumber(invoice.getNumber());
 
 	final T ir1;
 	try {
