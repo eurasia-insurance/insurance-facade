@@ -9,6 +9,8 @@ import static com.lapsa.insurance.elements.ProgressStatus.NEW;
 
 import java.time.Instant;
 import java.util.Currency;
+import java.util.Locale;
+import java.util.Optional;
 
 import javax.ejb.EJB;
 import javax.ejb.EJBException;
@@ -17,6 +19,7 @@ import javax.ejb.TransactionAttribute;
 import javax.ejb.TransactionAttributeType;
 
 import com.lapsa.insurance.domain.InsuranceRequest;
+import com.lapsa.insurance.domain.RequesterData;
 import com.lapsa.insurance.domain.crm.User;
 import com.lapsa.insurance.elements.InsuranceRequestCancellationReason;
 import com.lapsa.international.localization.LocalizationLanguage;
@@ -42,6 +45,7 @@ import tech.lapsa.java.commons.exceptions.IllegalState;
 import tech.lapsa.java.commons.function.MyExceptions;
 import tech.lapsa.java.commons.function.MyNumbers;
 import tech.lapsa.java.commons.function.MyObjects;
+import tech.lapsa.java.commons.function.MyOptionals;
 import tech.lapsa.java.commons.function.MyStrings;
 import tech.lapsa.java.commons.logging.MyLogger;
 import tech.lapsa.kz.taxpayer.TaxpayerNumber;
@@ -318,6 +322,23 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	}
     }
 
+    @Override
+    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+    public <T extends InsuranceRequest> T paymentCanceled(T insuranceRequest,
+	    User completedBy,
+	    InsuranceRequestCancellationReason insuranceRequestCancellationReason,
+	    String comments)
+	    throws IllegalState, IllegalArgument {
+	try {
+	    final T ir1 = _cancelPayment(insuranceRequest, insuranceRequestCancellationReason, comments);
+	    final T ir2 = _requestCanceled(ir1, completedBy, insuranceRequestCancellationReason);
+	    return ir2;
+	} catch (IllegalStateException e) {
+	    throw new IllegalState(e);
+	} catch (IllegalArgumentException e) {
+	    throw new IllegalArgument(e);
+	}
+    }
     // PRIVATE
 
     @EJB
@@ -620,6 +641,32 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 		// it should not happen
 		throw new EJBException(e);
 	    }
+	return insuranceRequest;
+    }
+
+    private <T extends InsuranceRequest> T _cancelPayment(T insuranceRequest,
+	    InsuranceRequestCancellationReason insuranceRequestCancellationReason,
+	    String comments) throws IllegalArgumentException {
+	final String invoiceNumber = insuranceRequest.getInvoiceNumber();
+	if (MyStrings.nonEmpty(invoiceNumber)) {
+
+	    final Optional<Locale> locale = MyOptionals.of(insuranceRequest)
+		    .map(InsuranceRequest::getRequester)
+		    .map(RequesterData::getPreferLanguage)
+		    .map(LocalizationLanguage::getLocale);
+
+	    final String reason = (locale.isPresent()
+		    ? insuranceRequestCancellationReason.regular(locale.get())
+		    : insuranceRequestCancellationReason.regular())
+		    + " : " + comments;
+
+	    try {
+		epayments.cancelPayment(invoiceNumber, reason);
+	    } catch (IllegalArgument | IllegalState | InvoiceNotFound e) {
+		// it should not happen
+		throw new EJBException(e);
+	    }
+	}
 	return insuranceRequest;
     }
 
