@@ -549,6 +549,7 @@ public class InsuranceRequestFacadeBean implements InsuranceRequestFacadeLocal, 
 	}
 	
 	insuranceRequest.setInsuranceRequestStatus(PAYMENT_CANCELED);
+	insuranceRequest.setPaymentCanceledInstant(Instant.now());
 
 	final T ir1;
 	try {
