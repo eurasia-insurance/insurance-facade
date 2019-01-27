@@ -36,7 +36,7 @@ public class RequestFacadeBean
 
     @Override
     @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public Request commentRequest(Request request, User user, String message)
+    public <T extends Request> T commentRequest(T request, User user, String message)
 	    throws IllegalState, IllegalArgument {
 	try {
 	    return _commentRequest(request, user, message);
@@ -58,7 +58,7 @@ public class RequestFacadeBean
 	return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).format(COMMENT_DATE_TIME_FORMATTER);
     }
 
-    private Request _commentRequest(Request request, User user, String message) {
+    private <T extends Request> T _commentRequest(T request, User user, String message) {
 	MyObjects.requireNonNull(request, "request");
 	MyObjects.requireNonNull(user, "user");
 	MyStrings.requireNonEmpty(message, "message");
@@ -74,14 +74,14 @@ public class RequestFacadeBean
 
 	request.setNote(newNote);
 
-	final Request response;
+	final T r1;
 	try {
-	    response = dao.save(request);
+	    r1 = dao.save(request);
 	} catch (IllegalArgument e) {
 	    // it should not happen
 	    throw new EJBException(e);
 	}
 
-	return response;
+	return r1;
     }
 }
