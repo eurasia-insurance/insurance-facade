@@ -24,6 +24,7 @@ import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService;
 import tech.lapsa.esbd.dao.elements.InsuranceClassTypeService.InsuranceClassTypeServiceRemote;
 import tech.lapsa.esbd.dao.entities.SubjectPersonEntityService.SubjectPersonEntityServiceRemote;
 import tech.lapsa.esbd.domain.entities.InsuredDriverEntity;
+import tech.lapsa.esbd.domain.entities.SubjectEntity;
 import tech.lapsa.esbd.domain.entities.SubjectPersonEntity;
 import tech.lapsa.insurance.facade.PolicyDriverFacade;
 import tech.lapsa.insurance.facade.PolicyDriverFacade.PolicyDriverFacadeLocal;
@@ -181,7 +182,7 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 		if (in == null)
 			return new PolicyDriver();
 
-		final PolicyDriver out = fillFromESBDEntity(in.getInsuredPerson(), insuranceClassTypeService);
+		final PolicyDriver out = fillFromESBDEntity(in.getInsured(), insuranceClassTypeService);
 
 		out.setAgeClass(in.getAgeClass());
 		out.setExpirienceClass(in.getExpirienceClass());
@@ -212,83 +213,81 @@ public class PolicyDriverFacadeBean implements PolicyDriverFacadeLocal, PolicyDr
 
 	//
 
-	private PolicyDriver _fillFromESBDEntity(final SubjectPersonEntity in) {
+	private PolicyDriver _fillFromESBDEntity(final SubjectEntity in) {
 		return fillFromESBDEntity(in, insuranceClassTypeService);
 	}
 
-	static PolicyDriver fillFromESBDEntity(final SubjectPersonEntity in,
+	static PolicyDriver fillFromESBDEntity(final SubjectEntity in,
 	        final InsuranceClassTypeService insuranceClassTypeService) {
 
 		final PolicyDriver driver = new PolicyDriver();
 
 		if (in != null) {
 
+			driver.setFetched(true);
+
 			if (in.getIdNumber() != null)
 				driver.setIdNumber(in.getIdNumber());
 
-			InsuranceClassType insuranceClassTypeLocal = null;
-			{
-				insuranceClassTypeLocal = insuranceClassTypeService.getDefault();
-				try {
-					insuranceClassTypeLocal = insuranceClassTypeService.getForSubject(in);
-				} catch (final NotFound | IllegalArgument e) {
+			if (in instanceof SubjectPersonEntity) {
+				final SubjectPersonEntity inPerson = (SubjectPersonEntity) in;
+
+				InsuranceClassType insuranceClassTypeLocal = null;
+				{
+					insuranceClassTypeLocal = insuranceClassTypeService.getDefault();
+					try {
+						insuranceClassTypeLocal = insuranceClassTypeService.getForSubject(inPerson);
+					} catch (final NotFound | IllegalArgument e) {
+					}
 				}
-			}
 
-			LocalDate dobLocal = null;
-			{
-				if (in != null && in.getPersonal() != null && in.getPersonal().getDayOfBirth() != null)
-					dobLocal = in.getPersonal().getDayOfBirth();
-			}
+				LocalDate dobLocal = null;
+				{
+					if (inPerson.getPersonal() != null && inPerson.getPersonal().getDayOfBirth() != null)
+						dobLocal = inPerson.getPersonal().getDayOfBirth();
+				}
 
-			InsuredAgeClass insuredAgeClassLocal = null;
-			{
-				if (dobLocal != null)
-					insuredAgeClassLocal = obtainInsuredAgeClass(dobLocal);
-			}
+				InsuredAgeClass insuredAgeClassLocal = null;
+				{
+					if (dobLocal != null)
+						insuredAgeClassLocal = obtainInsuredAgeClass(dobLocal);
+				}
 
-			Sex genderLocal = null;
-			{
-				if (in != null && in.getPersonal() != null && in.getPersonal().getGender() != null)
-					genderLocal = in.getPersonal().getGender();
-			}
+				Sex genderLocal = null;
+				{
+					if (inPerson.getPersonal() != null && inPerson.getPersonal().getGender() != null)
+						genderLocal = inPerson.getPersonal().getGender();
+				}
 
-			driver.setIdNumber(in.getIdNumber());
+				driver.setInsuranceClassType(insuranceClassTypeLocal);
+				driver.setAgeClass(insuredAgeClassLocal);
 
-			driver.setInsuranceClassType(insuranceClassTypeLocal);
-			driver.setAgeClass(insuredAgeClassLocal);
+				driver.getPersonalData().setDateOfBirth(dobLocal);
+				driver.getPersonalData().setGender(genderLocal);
 
-			driver.getPersonalData().setDateOfBirth(dobLocal);
-			driver.getPersonalData().setGender(genderLocal);
+				if (inPerson.getPersonal() != null) {
+					driver.getPersonalData().setName(inPerson.getPersonal().getName());
+					driver.getPersonalData().setSurename(inPerson.getPersonal().getSurename());
+					driver.getPersonalData().setPatronymic(inPerson.getPersonal().getPatronymic());
+				}
 
-			if (in != null) {
-				driver.setFetched(true);
-
-				if (in.getPersonal() != null) {
-					driver.getPersonalData().setName(in.getPersonal().getName());
-					driver.getPersonalData().setSurename(in.getPersonal().getSurename());
-					driver.getPersonalData().setPatronymic(in.getPersonal().getPatronymic());
+				if (inPerson.getIdentityCard() != null) {
+					driver.getIdentityCardData().setNumber(inPerson.getIdentityCard().getNumber());
+					driver.getIdentityCardData().setDateOfIssue(inPerson.getIdentityCard().getDateOfIssue());
+					driver.getIdentityCardData().setType(inPerson.getIdentityCard().getIdentityCardType());
+					driver.getIdentityCardData().setIssuingAuthority(inPerson.getIdentityCard().getIssuingAuthority());
 				}
 
 				if (in.getOrigin() != null) {
 					driver.getResidenceData().setResident(in.getOrigin().isResident());
 					driver.getOriginData().setCountry(in.getOrigin().getCountry());
-				}
 
-				if (in.getContact() != null)
-					driver.getResidenceData().setAddress(in.getContact().getHomeAdress());
-
-				if (in.getOrigin().getCity() != null)
-					driver.getResidenceData().setCity(in.getOrigin().getCity());
-
-				if (in.getIdentityCard() != null) {
-					driver.getIdentityCardData().setNumber(in.getIdentityCard().getNumber());
-					driver.getIdentityCardData().setDateOfIssue(in.getIdentityCard().getDateOfIssue());
-					driver.getIdentityCardData().setType(in.getIdentityCard().getIdentityCardType());
-					driver.getIdentityCardData().setIssuingAuthority(in.getIdentityCard().getIssuingAuthority());
+					if (in.getOrigin().getCity() != null)
+						driver.getResidenceData().setCity(in.getOrigin().getCity());
 				}
 
 				if (in.getContact() != null) {
+					driver.getResidenceData().setAddress(in.getContact().getHomeAdress());
 					driver.getContactData().setEmail(in.getContact().getEmail());
 					driver.getContactData().setPhone(in.getContact().getPhone());
 					driver.getContactData().setSiteUrl(in.getContact().getSiteUrl());
