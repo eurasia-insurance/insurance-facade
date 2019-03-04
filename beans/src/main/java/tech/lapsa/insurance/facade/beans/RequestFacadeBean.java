@@ -24,64 +24,63 @@ import tech.lapsa.java.commons.function.MyObjects;
 import tech.lapsa.java.commons.function.MyStrings;
 
 @Stateless(name = RequestFacade.BEAN_NAME)
-public class RequestFacadeBean
-	implements RequestFacadeLocal, RequestFacadeRemote {
+public class RequestFacadeBean implements RequestFacadeLocal, RequestFacadeRemote {
 
-    // EJBs
+	// EJBs
 
-    // insurance-dao (remote)
+	// insurance-dao (remote)
 
-    @EJB
-    private RequestDAORemote dao;
+	@EJB
+	private RequestDAORemote dao;
 
-    @Override
-    @TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
-    public <T extends Request> T commentRequest(T request, User user, String message)
-	    throws IllegalState, IllegalArgument {
-	try {
-	    return _commentRequest(request, user, message);
-	} catch (IllegalArgumentException e) {
-	    throw new IllegalArgument(e);
-	} catch (IllegalStateException e) {
-	    throw new IllegalState(e);
-	}
-    }
-
-    private static final DateTimeFormatter COMMENT_DATE_TIME_FORMATTER = //
-	    new DateTimeFormatterBuilder() //
-		    .append(DateTimeFormatter.ISO_LOCAL_DATE) //
-		    .appendLiteral(" ") //
-		    .append(DateTimeFormatter.ISO_LOCAL_TIME) //
-		    .toFormatter();
-
-    private static String getTimestamp() {
-	return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).format(COMMENT_DATE_TIME_FORMATTER);
-    }
-
-    private <T extends Request> T _commentRequest(T request, User user, String message) {
-	MyObjects.requireNonNull(request, "request");
-	MyObjects.requireNonNull(user, "user");
-	MyStrings.requireNonEmpty(message, "message");
-
-	final String newLine = MyStrings.format("%1$s %2$s\n%3$s", //
-		getTimestamp(), // 1
-		user.getName(), // 2
-		message // 3
-	);
-
-	final String oldNote = request.getNote();
-	final String newNote = MyStrings.format("\n%1$s\n%2$s", newLine, oldNote == null ? "" : oldNote);
-
-	request.setNote(newNote);
-
-	final T r1;
-	try {
-	    r1 = dao.save(request);
-	} catch (IllegalArgument e) {
-	    // it should not happen
-	    throw new EJBException(e);
+	@Override
+	@TransactionAttribute(TransactionAttributeType.REQUIRES_NEW)
+	public <T extends Request> T commentRequest(T request, User user, String message)
+	        throws IllegalState, IllegalArgument {
+		try {
+			return _commentRequest(request, user, message);
+		} catch (IllegalArgumentException e) {
+			throw new IllegalArgument(e);
+		} catch (IllegalStateException e) {
+			throw new IllegalState(e);
+		}
 	}
 
-	return r1;
-    }
+	private static final DateTimeFormatter COMMENT_DATE_TIME_FORMATTER = //
+	        new DateTimeFormatterBuilder() //
+	                .append(DateTimeFormatter.ISO_LOCAL_DATE) //
+	                .appendLiteral(" ") //
+	                .append(DateTimeFormatter.ISO_LOCAL_TIME) //
+	                .toFormatter();
+
+	private static String getTimestamp() {
+		return LocalDateTime.now().truncatedTo(ChronoUnit.SECONDS).format(COMMENT_DATE_TIME_FORMATTER);
+	}
+
+	private <T extends Request> T _commentRequest(T request, User user, String message) {
+		MyObjects.requireNonNull(request, "request");
+		MyObjects.requireNonNull(user, "user");
+		MyStrings.requireNonEmpty(message, "message");
+
+		final String newLine = MyStrings.format("%1$s %2$s\n%3$s", //
+		        getTimestamp(), // 1
+		        user.getName(), // 2
+		        message // 3
+		);
+
+		final String oldNote = request.getNote();
+		final String newNote = MyStrings.format("\n%1$s\n%2$s", newLine, oldNote == null ? "" : oldNote);
+
+		request.setNote(newNote);
+
+		final T r1;
+		try {
+			r1 = dao.save(request);
+		} catch (IllegalArgument e) {
+			// it should not happen
+			throw new EJBException(e);
+		}
+
+		return r1;
+	}
 }
