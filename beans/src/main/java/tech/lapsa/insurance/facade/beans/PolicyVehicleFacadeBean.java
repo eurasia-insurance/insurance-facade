@@ -308,7 +308,7 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
     //
 
     private PolicyVehicle _fillFromESBDEntity(final VehicleEntity esbdEntity) {
-        return fillFromESBDEntity(esbdEntity);
+        return fillFromESBDEntity(MyOptionals.of(esbdEntity));
     }
 
     static PolicyVehicle fillFromESBDEntity(final Optional<VehicleEntity> ove) {
