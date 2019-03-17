@@ -1,6 +1,7 @@
 package tech.lapsa.insurance.facade.beans;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.Stream;
 
 import javax.ejb.EJB;
@@ -310,26 +311,27 @@ public class PolicyVehicleFacadeBean implements PolicyVehicleFacadeLocal, Policy
 		return fillFromESBDEntity(esbdEntity);
 	}
 
-	static PolicyVehicle fillFromESBDEntity(final VehicleEntity esbdEntity) {
+	static PolicyVehicle fillFromESBDEntity(final Optional<VehicleEntity> ove) {
 		final PolicyVehicle vehicle = new PolicyVehicle();
 
-		if (esbdEntity != null) {
+		if (ove.isPresent()) {
+		    final VehicleEntity ve = ove.get();
 			vehicle.setFetched(true);
 
-			vehicle.setVinCode(esbdEntity.getVinCode());
-			if (esbdEntity.getRealeaseDate() != null) {
-				vehicle.setVehicleAgeClass(VehicleAgeClass.forDateOfManufacture(esbdEntity.getRealeaseDate()));
-				vehicle.setYearOfManufacture(esbdEntity.getRealeaseDate().getYear());
+			vehicle.setVinCode(ve.getVinCode());
+			if (ve.getRealeaseDate() != null) {
+				vehicle.setVehicleAgeClass(VehicleAgeClass.forDateOfManufacture(ve.getRealeaseDate()));
+				vehicle.setYearOfManufacture(ve.getRealeaseDate().getYear());
 			}
 
-			vehicle.setVehicleClass(esbdEntity.getVehicleClass());
+			vehicle.setVehicleClass(ve.getVehicleClass());
 
-			vehicle.setColor(esbdEntity.getColor());
+			vehicle.setColor(ve.getColor());
 
-			if (esbdEntity.getVehicleModel() != null) {
-				vehicle.setModel(esbdEntity.getVehicleModel().getName());
-				if (esbdEntity.getVehicleModel().getManufacturer() != null)
-					vehicle.setManufacturer(esbdEntity.getVehicleModel().getManufacturer().getName());
+			if (ve.getVehicleModel() != null) {
+				vehicle.setModel(ve.getVehicleModel().getName());
+				if (ve.getVehicleModel().getManufacturer() != null)
+					vehicle.setManufacturer(ve.getVehicleModel().getManufacturer().getName());
 			}
 		}
 
