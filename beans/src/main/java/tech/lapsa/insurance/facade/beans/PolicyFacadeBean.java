@@ -34,153 +34,153 @@ import tech.lapsa.java.commons.function.MyStrings;
 @Stateless(name = PolicyFacade.BEAN_NAME)
 public class PolicyFacadeBean implements PolicyFacadeLocal, PolicyFacadeRemote {
 
-	private static final Currency KZT = Currency.getInstance("KZT");
+    private static final Currency KZT = Currency.getInstance("KZT");
 
-	// READERS
+    // READERS
 
-	@Override
-	@TransactionAttribute(TransactionAttributeType.SUPPORTS)
-	public Policy getByNumber(final String number) throws PolicyNotFound, IllegalArgument {
-		try {
-			return _getByNumber(number);
-		} catch (final IllegalArgumentException e) {
-			throw new IllegalArgument(e);
-		}
-	}
+    @Override
+    @TransactionAttribute(TransactionAttributeType.SUPPORTS)
+    public Policy getByNumber(final String number) throws PolicyNotFound, IllegalArgument {
+        try {
+            return _getByNumber(number);
+        } catch (final IllegalArgumentException e) {
+            throw new IllegalArgument(e);
+        }
+    }
 
-	@EJB
-	private PolicyEntityServiceRemote policyService;
+    @EJB
+    private PolicyEntityServiceRemote policyService;
 
-	private Policy _getByNumber(final String number) throws IllegalArgumentException, PolicyNotFound {
-		MyStrings.requireNonEmpty(number, "number");
+    private Policy _getByNumber(final String number) throws IllegalArgumentException, PolicyNotFound {
+        MyStrings.requireNonEmpty(number, "number");
 
-		final PolicyEntity p;
-		try {
-			p = policyService.getByNumber(number);
-		} catch (final IllegalArgument e) {
-			// it should not happens
-			throw new EJBException(e.getMessage());
-		} catch (final NotFound e) {
-			throw MyExceptions.format(PolicyNotFound::new, "Policy not found with number %1$s", number);
-		}
+        final PolicyEntity p;
+        try {
+            p = policyService.getByNumber(number);
+        } catch (final IllegalArgument e) {
+            // it should not happens
+            throw new EJBException(e.getMessage());
+        } catch (final NotFound e) {
+            throw MyExceptions.format(PolicyNotFound::new, "Policy not found with number %1$s", number);
+        }
 
-		return _fillFromESBDEntity(p);
-	}
+        return _fillFromESBDEntity(p);
+    }
 
-	//
+    //
 
-	@EJB
-	private InsuranceClassTypeServiceRemote insuranceClassTypeService;
+    @EJB
+    private InsuranceClassTypeServiceRemote insuranceClassTypeService;
 
-	private Policy _fillFromESBDEntity(final PolicyEntity in) {
-		return fillFromESBDEntity(in, insuranceClassTypeService);
-	}
+    private Policy _fillFromESBDEntity(final PolicyEntity in) {
+        return fillFromESBDEntity(in, insuranceClassTypeService);
+    }
 
-	static Policy fillFromESBDEntity(final PolicyEntity in, final InsuranceClassTypeService insuranceClassTypeService) {
-		if (in == null)
-			return new Policy();
+    static Policy fillFromESBDEntity(final PolicyEntity in, final InsuranceClassTypeService insuranceClassTypeService) {
+        if (in == null)
+            return new Policy();
 
-		final Policy out = new Policy();
+        final Policy out = new Policy();
 
-		// in.getBranch();
-		// in.getCalculatedPremium();
-		out.setCalculation(new CalculationData());
-		out.getCalculation().setAmount(in.getCalculatedPremium());
-		out.getCalculation().setCurrency(KZT);
+        // in.getBranch();
+        // in.getCalculatedPremium();
+        out.setCalculation(new CalculationData());
+        out.getCalculation().setAmount(in.getCalculatedPremium());
+        out.getCalculation().setCurrency(KZT);
 
-		out.setActual(new CalculationData());
-		out.getActual().setAmount(in.getActualPremium());
-		out.getActual().setCurrency(KZT);
+        out.setActual(new CalculationData());
+        out.getActual().setAmount(in.getActualPremium());
+        out.getActual().setCurrency(KZT);
 
-		out.setPaymentDate(in.getPaymentDate());
-		out.setPolicyDate(in.getPolicyDate());
+        out.setPaymentDate(in.getPaymentDate());
+        out.setPolicyDate(in.getPolicyDate());
 
-		// in.getId();
-		out.setNumber(in.getNumber());
+        // in.getId();
+        out.setNumber(in.getNumber());
 
-		out.setDateOfIssue(in.getDateOfIssue());
+        out.setDateOfIssue(in.getDateOfIssue());
 
-		// in.getCreated();
-		// in.getInternalNumber();
+        // in.getCreated();
+        // in.getInternalNumber();
 
-		if (in.getInsurant() != null) {
+        if (in.getInsurant() != null) {
 
-			out.setInsurant(new InsurantData());
+            out.setInsurant(new InsurantData());
 
-			if (in.getInsurant().getContact() != null) {
-				out.getInsurant().setPhone(in.getInsurant().getContact().getPhone());
-				out.getInsurant().setEmail(in.getInsurant().getContact().getEmail());
-				// in.getInsurant().getContact().getHomeAdress();
-				// in.getInsurant().getContact().getSiteUrl();
-			}
+            if (in.getInsurant().getContact() != null) {
+                out.getInsurant().setPhone(in.getInsurant().getContact().getPhone());
+                out.getInsurant().setEmail(in.getInsurant().getContact().getEmail());
+                // in.getInsurant().getContact().getHomeAdress();
+                // in.getInsurant().getContact().getSiteUrl();
+            }
 
-			out.getInsurant().setIdNumber(in.getInsurant().getIdNumber());
+            out.getInsurant().setIdNumber(in.getInsurant().getIdNumber());
 
-			// in.getInsurant().getComments();
+            // in.getInsurant().getComments();
 
-			// in.getInsurant().getEconomicsSector();
-			// in.getInsurant().getId();
-			// in.getInsurant().getOrigin().getCity();
-			// in.getInsurant().getOrigin().getCountry();
-			// in.getInsurant().getSubjectType();
-			// in.getInsurant().getTaxPayerNumber();
+            // in.getInsurant().getEconomicsSector();
+            // in.getInsurant().getId();
+            // in.getInsurant().getOrigin().getCity();
+            // in.getInsurant().getOrigin().getCountry();
+            // in.getInsurant().getSubjectType();
+            // in.getInsurant().getTaxPayerNumber();
 
-			if (in.getInsurant() instanceof SubjectPersonEntity) {
+            if (in.getInsurant() instanceof SubjectPersonEntity) {
 
-				final SubjectPersonEntity in1 = (SubjectPersonEntity) in.getInsurant();
+                final SubjectPersonEntity in1 = (SubjectPersonEntity) in.getInsurant();
 
-				if (in1.getPersonal() != null) {
-					out.getInsurant().setPersonal(new PersonalData());
-					out.getInsurant().getPersonal().setName(in1.getPersonal().getName());
-					out.getInsurant().getPersonal().setSurename(in1.getPersonal().getSurename());
-					out.getInsurant().getPersonal().setPatronymic(in1.getPersonal().getPatronymic());
-					out.getInsurant().getPersonal().setDateOfBirth(in1.getPersonal().getDayOfBirth());
-					out.getInsurant().getPersonal().setGender(in1.getPersonal().getGender());
-				}
+                if (in1.getPersonal() != null) {
+                    out.getInsurant().setPersonal(new PersonalData());
+                    out.getInsurant().getPersonal().setName(in1.getPersonal().getName());
+                    out.getInsurant().getPersonal().setSurename(in1.getPersonal().getSurename());
+                    out.getInsurant().getPersonal().setPatronymic(in1.getPersonal().getPatronymic());
+                    out.getInsurant().getPersonal().setDateOfBirth(in1.getPersonal().getDayOfBirth());
+                    out.getInsurant().getPersonal().setGender(in1.getPersonal().getGender());
+                }
 
-				// in1.getIdentityCard().getDateOfIssue();
-				// in1.getIdentityCard().getIdentityCardType();
-				// in1.getIdentityCard().getIssuingAuthority();
-				// in1.getIdentityCard().getNumber();
-				// in1.getTaxPayerNumber();
-			}
+                // in1.getIdentityCard().getDateOfIssue();
+                // in1.getIdentityCard().getIdentityCardType();
+                // in1.getIdentityCard().getIssuingAuthority();
+                // in1.getIdentityCard().getNumber();
+                // in1.getTaxPayerNumber();
+            }
 
-			if (in.getInsurant() instanceof SubjectCompanyEntity) {
-				final SubjectCompanyEntity in1 = (SubjectCompanyEntity) in.getInsurant();
+            if (in.getInsurant() instanceof SubjectCompanyEntity) {
+                final SubjectCompanyEntity in1 = (SubjectCompanyEntity) in.getInsurant();
 
-				out.getInsurant().setCompany(new CompanyData());
-				out.getInsurant().getCompany().setName(in1.getCompanyName());
+                out.getInsurant().setCompany(new CompanyData());
+                out.getInsurant().getCompany().setName(in1.getCompanyName());
 
-				// in1.getHeadName();
-				// in1.getAccountantName();
-				// in1.getCompanyActivityKind();
-			}
-		}
+                // in1.getHeadName();
+                // in1.getAccountantName();
+                // in1.getCompanyActivityKind();
+            }
+        }
 
-		out.setDateOfTermination(in.getDateOfCancelation());
-		out.setTerminationReason(in.getCancelationReasonType());
+        out.setDateOfTermination(in.getDateOfCancelation());
+        out.setTerminationReason(in.getCancelationReasonType());
 
-		// in.getReissuedPolicyId();
-		// in.getComments();
-		// in.getModified();
+        // in.getReissuedPolicyId();
+        // in.getComments();
+        // in.getModified();
 
-		in.getInsurer();
+        in.getInsurer();
 
-		// in.getInsuredDrivers();
-		MyStreams.orEmptyOf(in.getInsuredDrivers())
-		        .map(x -> PolicyDriverFacadeBean.__fillFromESBDEntity(x, insuranceClassTypeService))
-		        .forEach(out::addDriver);
+        // in.getInsuredDrivers();
+        MyStreams.orEmptyOf(in.getInsuredDrivers())
+                .map(x -> PolicyDriverFacadeBean.__fillFromESBDEntity(x, insuranceClassTypeService))
+                .forEach(out::addDriver);
 
-		// in.getInsuredVehicles();
-		MyStreams.orEmptyOf(in.getInsuredVehicles()).map(PolicyVehicleFacadeBean::__fillFromESBDEntity)
-		        .forEach(out::addVehicle);
+        // in.getInsuredVehicles();
+        MyStreams.orEmptyOf(in.getInsuredVehicles()).map(PolicyVehicleFacadeBean::__fillFromESBDEntity)
+                .forEach(out::addVehicle);
 
-		// in.getValidFrom();
-		// in.getValidTill();
-		out.setPeriod(new InsurancePeriodData());
-		out.getPeriod().setFrom(in.getValidFrom());
-		out.getPeriod().setTo(in.getValidTill());
+        // in.getValidFrom();
+        // in.getValidTill();
+        out.setPeriod(new InsurancePeriodData());
+        out.getPeriod().setFrom(in.getValidFrom());
+        out.getPeriod().setTo(in.getValidTill());
 
-		return out;
-	}
+        return out;
+    }
 }
